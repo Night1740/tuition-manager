@@ -36,6 +36,9 @@ data class Student(
     val updatedAt: Instant,
 ) {
     val isArchived: Boolean get() = archivedAt != null
+
+    /** The number to show on a list row: the student's own phone, otherwise the guardian phone. */
+    val primaryPhone: String? get() = phone ?: guardianPhone
 }
 
 data class NewStudent(

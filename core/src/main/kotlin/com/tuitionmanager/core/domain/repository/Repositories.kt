@@ -27,6 +27,17 @@ interface StudentRepository {
 
     fun observeActive(instituteId: String, query: String = ""): Flow<DataResult<List<Student>>>
 
+    /** SQL search over name, student code, and phone digits. Blank [query] returns the filtered list. */
+    fun observeList(
+        instituteId: String,
+        includeArchived: Boolean,
+        query: String,
+    ): Flow<DataResult<List<Student>>>
+
+    fun observeOne(id: String): Flow<DataResult<Student>>
+
+    suspend fun suggestCode(instituteId: String): DataResult<String>
+
     suspend fun countActive(instituteId: String): DataResult<Int>
 
     suspend fun get(id: String): DataResult<Student>
@@ -69,6 +80,9 @@ interface StudentBatchRepository {
     fun observeActiveEnrollments(batchId: String): Flow<DataResult<List<Enrollment>>>
 
     fun observeHistory(studentId: String): Flow<DataResult<List<StudentBatch>>>
+
+    /** Batches with an open assignment for this student. Read-only on the student screen. */
+    fun observeOpenBatches(studentId: String): Flow<DataResult<List<Batch>>>
 
     suspend fun assign(
         studentId: String,

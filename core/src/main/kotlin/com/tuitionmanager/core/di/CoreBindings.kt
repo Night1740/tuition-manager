@@ -12,6 +12,8 @@ import com.tuitionmanager.core.domain.repository.BatchRepository
 import com.tuitionmanager.core.domain.repository.InstituteRepository
 import com.tuitionmanager.core.domain.repository.StudentBatchRepository
 import com.tuitionmanager.core.domain.repository.StudentRepository
+import com.tuitionmanager.core.domain.time.ClockLocalCalendar
+import com.tuitionmanager.core.domain.time.LocalCalendar
 import com.tuitionmanager.core.id.DeterministicIds
 import com.tuitionmanager.core.id.IdGenerator
 import com.tuitionmanager.core.id.Rfc9562Ids
@@ -28,9 +30,13 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
+    /**
+     * Instants from [Clock.instant] are UTC moments. The zone is the device zone so
+     * [LocalCalendar.today] is the teacher's calendar date, not the UTC date.
+     */
     @Provides
     @Singleton
-    fun clock(): Clock = Clock.systemUTC()
+    fun clock(): Clock = Clock.systemDefaultZone()
 
     @Provides
     @Singleton
@@ -60,6 +66,10 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
+    abstract fun calendar(impl: ClockLocalCalendar): LocalCalendar
+
+    @Binds
+    @Singleton
     abstract fun institutes(impl: RoomInstituteRepository): InstituteRepository
 
     @Binds
@@ -72,5 +82,5 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-        abstract fun studentBatches(impl: RoomStudentBatchRepository): StudentBatchRepository
+    abstract fun studentBatches(impl: RoomStudentBatchRepository): StudentBatchRepository
 }

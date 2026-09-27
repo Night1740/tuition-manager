@@ -58,6 +58,7 @@ class OnboardingAndStartTest : FeatureRoom() {
         onboarding.onPhone("+91 98765 43210")
         onboarding.onAddress("Lane 4")
         onboarding.save()
+        onboarding.state.first { !it.saving }
         val stored = (institutes.get() as DataResult.Success).value
         checkNotNull(stored)
         assertEquals("Morning Maths", stored.name)

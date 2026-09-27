@@ -134,10 +134,17 @@ data class StudentContacts(
     val studentPhone: String?,
 )
 
+enum class ContactField {
+    GuardianName,
+    GuardianPhone,
+    StudentPhone,
+    EitherPhone,
+}
+
 sealed interface ContactValidation {
     data class Accepted(val contacts: StudentContacts) : ContactValidation
 
-    data class Rejected(val code: InvalidCode) : ContactValidation
+    data class Rejected(val code: InvalidCode, val field: ContactField) : ContactValidation
 }
 
 /**
@@ -152,21 +159,21 @@ fun validateStudentContacts(
 ): ContactValidation {
     val name = when (val parsed = parseOptionalText(guardianName, MAX_NAME_LENGTH)) {
         OptionalText.TooLong ->
-            return ContactValidation.Rejected(InvalidCode.NameTooLong)
+            return ContactValidation.Rejected(InvalidCode.NameTooLong, ContactField.GuardianName)
         is OptionalText.Value -> parsed.text
     }
     val guardian = when (val parsed = parsePhone(guardianPhone, required = false)) {
         PhoneParse.Invalid ->
-            return ContactValidation.Rejected(InvalidCode.InvalidPhone)
+            return ContactValidation.Rejected(InvalidCode.InvalidPhone, ContactField.GuardianPhone)
         is PhoneParse.Value -> parsed.national
     }
     val student = when (val parsed = parsePhone(studentPhone, required = false)) {
         PhoneParse.Invalid ->
-            return ContactValidation.Rejected(InvalidCode.InvalidPhone)
+            return ContactValidation.Rejected(InvalidCode.InvalidPhone, ContactField.StudentPhone)
         is PhoneParse.Value -> parsed.national
     }
     if (guardian == null && student == null) {
-        return ContactValidation.Rejected(InvalidCode.MissingContactPhone)
+        return ContactValidation.Rejected(InvalidCode.MissingContactPhone, ContactField.EitherPhone)
     }
     return ContactValidation.Accepted(StudentContacts(name, guardian, student))
 }

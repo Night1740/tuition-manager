@@ -116,6 +116,47 @@ class InstituteStudentRepositoryTest : RoomFixture() {
     }
 
     @Test
+    fun suggestsTheNextFreeCodeAndKeepsArchivedCodesReserved() = runBlocking {
+        val institute = createInstitute()
+        assertEquals("1", students.suggestCode(institute.id).success())
+        createStudent(institute.id, code = "A-01")
+        assertEquals("1", students.suggestCode(institute.id).success())
+        createStudent(institute.id, code = "1")
+        createStudent(institute.id, code = "3")
+        assertEquals("2", students.suggestCode(institute.id).success())
+        val two = createStudent(institute.id, code = "2")
+        students.archive(two.id, LocalDate.of(2026, 9, 15)).success()
+        assertEquals("4", students.suggestCode(institute.id).success())
+    }
+
+    @Test
+    fun searchMatchesPhoneDigitsAndEscapesUnderscore() = runBlocking {
+        val institute = createInstitute()
+        val matched = students.create(
+            newStudent(
+                institute.id,
+                name = "A_B",
+                code = "U1",
+                guardianName = null,
+                guardianPhone = null,
+                phone = "9988776655",
+            ),
+        ).success()
+        createStudent(institute.id, name = "AXB", code = "U2")
+        assertEquals(listOf("A_B"), students.observeActive(institute.id, "_").awaitSuccess().map { it.name })
+        assertEquals(
+            listOf("A_B"),
+            students.observeActive(institute.id, "99 88-77").awaitSuccess().map { it.name },
+        )
+        students.archive(matched.id, LocalDate.of(2026, 9, 15)).success()
+        assertTrue(students.observeActive(institute.id, "A_B").awaitSuccess().isEmpty())
+        assertEquals(
+            listOf("A_B"),
+            students.observeList(institute.id, includeArchived = true, query = "A_B").awaitSuccess().map { it.name },
+        )
+    }
+
+    @Test
     fun missingStudentIsNotFound() = runBlocking {
         assertEquals(
             DataResult.Failure(DataError.NotFound(EntityKind.Student)),

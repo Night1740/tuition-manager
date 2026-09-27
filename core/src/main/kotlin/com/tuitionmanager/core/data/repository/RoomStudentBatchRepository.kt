@@ -10,6 +10,7 @@ import com.tuitionmanager.core.domain.error.DataError
 import com.tuitionmanager.core.domain.error.DataResult
 import com.tuitionmanager.core.domain.error.EntityKind
 import com.tuitionmanager.core.domain.error.InvalidCode
+import com.tuitionmanager.core.domain.model.Batch
 import com.tuitionmanager.core.domain.model.Enrollment
 import com.tuitionmanager.core.domain.model.StudentBatch
 import com.tuitionmanager.core.domain.repository.StudentBatchRepository
@@ -61,6 +62,12 @@ class RoomStudentBatchRepository @Inject constructor(
         dao.observeByStudent(studentId)
             .map { rows -> DataResult.Success(rows.map { it.toDomain() }) }
             .storageFailures("observe_student_batch_history")
+            .flowOn(dispatchers.io)
+
+    override fun observeOpenBatches(studentId: String): Flow<DataResult<List<Batch>>> =
+        database.batchDao().observeOpenForStudent(studentId)
+            .map { rows -> DataResult.Success(rows.map { it.toDomain() }) }
+            .storageFailures("observe_open_batches")
             .flowOn(dispatchers.io)
 
     override suspend fun assign(

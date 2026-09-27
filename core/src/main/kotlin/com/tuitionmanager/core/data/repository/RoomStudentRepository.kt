@@ -11,14 +11,9 @@ import com.tuitionmanager.core.domain.error.InvalidCode
 import com.tuitionmanager.core.domain.model.NewStudent
 import com.tuitionmanager.core.domain.model.Student
 import com.tuitionmanager.core.domain.repository.StudentRepository
-import com.tuitionmanager.core.domain.validation.ContactValidation
-import com.tuitionmanager.core.domain.validation.MAX_NOTES_LENGTH
-import com.tuitionmanager.core.domain.validation.MAX_PHOTO_URI_LENGTH
-import com.tuitionmanager.core.domain.validation.OptionalText
-import com.tuitionmanager.core.domain.validation.normalizeRequiredName
-import com.tuitionmanager.core.domain.validation.normalizeStudentCode
-import com.tuitionmanager.core.domain.validation.parseOptionalText
-import com.tuitionmanager.core.domain.validation.validateStudentContacts
+import com.tuitionmanager.core.domain.validation.StudentFormValidation
+import com.tuitionmanager.core.domain.validation.nextFreeStudentCode
+import com.tuitionmanager.core.domain.validation.validateStudentForm
 import com.tuitionmanager.core.id.IdGenerator
 import java.time.Clock
 import java.time.LocalDate
@@ -44,16 +39,51 @@ class RoomStudentRepository @Inject constructor(
             .storageFailures("observe_students")
             .flowOn(dispatchers.io)
 
-    override fun observeActive(instituteId: String, query: String): Flow<DataResult<List<Student>>> {
-        val source = if (query.isBlank()) {
-            dao.observeActive(instituteId)
+    override fun observeActive(instituteId: String, query: String): Flow<DataResult<List<Student>>> =
+        observeList(instituteId, includeArchived = false, query = query)
+
+    override fun observeList(
+        instituteId: String,
+        includeArchived: Boolean,
+        query: String,
+    ): Flow<DataResult<List<Student>>> {
+        val trimmed = query.trim()
+        val source = if (trimmed.isEmpty()) {
+            if (includeArchived) dao.observeAll(instituteId) else dao.observeActive(instituteId)
         } else {
-            dao.observeActiveMatching(instituteId, toContainsLikePattern(query))
+            val digits = trimmed.filter { it.isDigit() }
+            dao.observeMatching(
+                instituteId = instituteId,
+                includeArchived = if (includeArchived) 1 else 0,
+                pattern = toContainsLikePattern(trimmed),
+                digitPattern = if (digits.isEmpty()) "" else toContainsLikePattern(digits),
+            )
         }
         return source
             .map { rows -> DataResult.Success(rows.map { it.toDomain() }) }
             .storageFailures("observe_students")
             .flowOn(dispatchers.io)
+    }
+
+    override fun observeOne(id: String): Flow<DataResult<Student>> =
+        dao.observeById(id)
+            .map { entity ->
+                if (entity == null) {
+                    DataResult.Failure(DataError.NotFound(EntityKind.Student))
+                } else {
+                    DataResult.Success(entity.toDomain())
+                }
+            }
+            .storageFailures("observe_student")
+            .flowOn(dispatchers.io)
+
+    override suspend fun suggestCode(instituteId: String): DataResult<String> = runData("suggest_student_code") {
+        withContext(dispatchers.io) {
+            if (database.instituteDao().getById(instituteId) == null) {
+                return@withContext DataResult.Failure(DataError.NotFound(EntityKind.Institute))
+            }
+            DataResult.Success(nextFreeStudentCode(dao.studentCodes(instituteId)))
+        }
     }
 
     override suspend fun countActive(instituteId: String): DataResult<Int> = runData("count_students") {
@@ -71,17 +101,20 @@ class RoomStudentRepository @Inject constructor(
     }
 
     override suspend fun create(draft: NewStudent): DataResult<Student> = runData("create_student") {
-        val fields = studentFields(
-            name = draft.name,
-            studentCode = draft.studentCode,
-            guardianName = draft.guardianName,
-            guardianPhone = draft.guardianPhone,
-            phone = draft.phone,
-            photoUri = draft.photoUri,
-            notes = draft.notes,
-        )
-        if (fields is FieldError) return@runData DataResult.Failure(DataError.Invalid(fields.code))
-        val parsed = fields as StudentFields
+        val parsed = when (
+            val validated = validateStudentForm(
+                name = draft.name,
+                studentCode = draft.studentCode,
+                guardianName = draft.guardianName,
+                guardianPhone = draft.guardianPhone,
+                studentPhone = draft.phone,
+                notes = draft.notes,
+                photoUri = draft.photoUri,
+            )
+        ) {
+            is StudentFormValidation.Rejected -> return@runData rejected(validated)
+            is StudentFormValidation.Accepted -> validated.student
+        }
         withContext(dispatchers.io) {
             if (database.instituteDao().getById(draft.instituteId) == null) {
                 return@withContext DataResult.Failure(DataError.NotFound(EntityKind.Institute))
@@ -108,17 +141,20 @@ class RoomStudentRepository @Inject constructor(
     }
 
     override suspend fun update(student: Student): DataResult<Student> = runData("update_student") {
-        val fields = studentFields(
-            name = student.name,
-            studentCode = student.studentCode,
-            guardianName = student.guardianName,
-            guardianPhone = student.guardianPhone,
-            phone = student.phone,
-            photoUri = student.photoUri,
-            notes = student.notes,
-        )
-        if (fields is FieldError) return@runData DataResult.Failure(DataError.Invalid(fields.code))
-        val parsed = fields as StudentFields
+        val parsed = when (
+            val validated = validateStudentForm(
+                name = student.name,
+                studentCode = student.studentCode,
+                guardianName = student.guardianName,
+                guardianPhone = student.guardianPhone,
+                studentPhone = student.phone,
+                notes = student.notes,
+                photoUri = student.photoUri,
+            )
+        ) {
+            is StudentFormValidation.Rejected -> return@runData rejected(validated)
+            is StudentFormValidation.Accepted -> validated.student
+        }
         withContext(dispatchers.io) {
             val existing = dao.getById(student.id)
                 ?: return@withContext DataResult.Failure(DataError.NotFound(EntityKind.Student))
@@ -165,62 +201,8 @@ class RoomStudentRepository @Inject constructor(
     }
 }
 
-private sealed interface ParsedStudent
-
-private data class StudentFields(
-    val name: String,
-    val studentCode: String,
-    val guardianName: String?,
-    val guardianPhone: String?,
-    val phone: String?,
-    val photoUri: String?,
-    val notes: String?,
-) : ParsedStudent
-
-private data class FieldError(val code: InvalidCode) : ParsedStudent
-
-private fun studentFields(
-    name: String,
-    studentCode: String,
-    guardianName: String?,
-    guardianPhone: String?,
-    phone: String?,
-    photoUri: String?,
-    notes: String?,
-): ParsedStudent {
-    val normalizedName = normalizeRequiredName(name) ?: return FieldError(InvalidCode.BlankName)
-    val code = when (val trimmed = studentCode.trim()) {
-        "" -> return FieldError(InvalidCode.BlankStudentCode)
-        else -> normalizeStudentCode(trimmed) ?: return FieldError(InvalidCode.InvalidStudentCode)
-    }
-    val contacts = when (val parsed = validateStudentContacts(guardianName, guardianPhone, phone)) {
-        is ContactValidation.Rejected -> return FieldError(parsed.code)
-        is ContactValidation.Accepted -> parsed.contacts
-    }
-    val photo = when (val parsed = parsePhoto(photoUri)) {
-        is PhotoValue -> parsed.uri
-        is FieldError -> return parsed
-        is StudentFields -> error("Unexpected photo parse result")
-    }
-    val parsedNotes = parseOptionalText(notes, MAX_NOTES_LENGTH)
-    if (parsedNotes is OptionalText.TooLong) return FieldError(InvalidCode.NotesTooLong)
-    return StudentFields(
-        name = normalizedName,
-        studentCode = code,
-        guardianName = contacts.guardianName,
-        guardianPhone = contacts.guardianPhone,
-        phone = contacts.studentPhone,
-        photoUri = photo,
-        notes = (parsedNotes as OptionalText.Value).text,
-    )
+private fun rejected(validation: StudentFormValidation.Rejected): DataResult<Nothing> {
+    val code = validation.errors.firstOrNull()?.code ?: InvalidCode.BlankName
+    return DataResult.Failure(DataError.Invalid(code))
 }
 
-private data class PhotoValue(val uri: String?) : ParsedStudent
-
-private fun parsePhoto(raw: String?): ParsedStudent {
-    if (raw.isNullOrBlank()) return PhotoValue(null)
-    val trimmed = raw.trim()
-    if ('\n' in trimmed || '\r' in trimmed) return FieldError(InvalidCode.InvalidPhotoUri)
-    if (trimmed.length > MAX_PHOTO_URI_LENGTH) return FieldError(InvalidCode.PhotoUriTooLong)
-    return PhotoValue(trimmed)
-}

@@ -61,12 +61,27 @@ abstract class StudentDao {
     abstract fun observeActive(instituteId: String): Flow<List<StudentEntity>>
 
     @Query(
-        "SELECT * FROM students WHERE institute_id = :instituteId AND archived_at IS NULL " +
+        "SELECT * FROM students WHERE institute_id = :instituteId " +
+            "AND (:includeArchived = 1 OR archived_at IS NULL) " +
             "AND (name COLLATE NOCASE LIKE :pattern ESCAPE '\\' " +
-            "OR student_code COLLATE NOCASE LIKE :pattern ESCAPE '\\') " +
+            "OR student_code COLLATE NOCASE LIKE :pattern ESCAPE '\\' " +
+            "OR (:digitPattern != '' AND (" +
+            "IFNULL(guardian_phone, '') LIKE :digitPattern ESCAPE '\\' " +
+            "OR IFNULL(phone, '') LIKE :digitPattern ESCAPE '\\'))) " +
             "ORDER BY name COLLATE NOCASE, student_code COLLATE NOCASE",
     )
-    abstract fun observeActiveMatching(instituteId: String, pattern: String): Flow<List<StudentEntity>>
+    abstract fun observeMatching(
+        instituteId: String,
+        includeArchived: Int,
+        pattern: String,
+        digitPattern: String,
+    ): Flow<List<StudentEntity>>
+
+    @Query("SELECT student_code FROM students WHERE institute_id = :instituteId")
+    abstract suspend fun studentCodes(instituteId: String): List<String>
+
+    @Query("SELECT * FROM students WHERE id = :id")
+    abstract fun observeById(id: String): Flow<StudentEntity?>
 
     @Query(
         "SELECT COUNT(*) FROM students WHERE institute_id = :instituteId AND archived_at IS NULL",
@@ -137,6 +152,14 @@ interface BatchDao {
 
     @Query("SELECT * FROM batches WHERE id = :id")
     suspend fun getById(id: String): BatchEntity?
+
+    @Query(
+        "SELECT batches.* FROM batches " +
+            "INNER JOIN student_batch ON student_batch.batch_id = batches.id " +
+            "WHERE student_batch.student_id = :studentId AND student_batch.ended_on IS NULL " +
+            "ORDER BY batches.name COLLATE NOCASE",
+    )
+    fun observeOpenForStudent(studentId: String): Flow<List<BatchEntity>>
 
     @Insert
     suspend fun insert(entity: BatchEntity)

@@ -6,11 +6,15 @@ import androidx.test.core.app.ApplicationProvider
 import com.tuitionmanager.core.data.local.TuitionDatabase
 import com.tuitionmanager.core.data.repository.RoomBatchRepository
 import com.tuitionmanager.core.data.repository.RoomInstituteRepository
+import com.tuitionmanager.core.data.repository.RoomStudentBatchRepository
 import com.tuitionmanager.core.data.repository.RoomStudentRepository
 import com.tuitionmanager.core.domain.dispatch.DispatcherProvider
 import com.tuitionmanager.core.domain.error.DataResult
+import com.tuitionmanager.core.domain.model.Batch
+import com.tuitionmanager.core.domain.model.NewBatch
 import com.tuitionmanager.core.domain.model.NewInstitute
 import com.tuitionmanager.core.domain.model.NewStudent
+import java.time.DayOfWeek
 import com.tuitionmanager.core.id.UuidV7IdGenerator
 import java.time.Clock
 import java.time.Instant
@@ -34,6 +38,7 @@ abstract class FeatureRoom {
     protected lateinit var institutes: RoomInstituteRepository
     protected lateinit var students: RoomStudentRepository
     protected lateinit var batches: RoomBatchRepository
+    protected lateinit var assignments: RoomStudentBatchRepository
 
     @Before
     fun openDatabase() {
@@ -48,6 +53,7 @@ abstract class FeatureRoom {
         institutes = RoomInstituteRepository(db, ids, clock, dispatchers)
         students = RoomStudentRepository(db, ids, clock, dispatchers)
         batches = RoomBatchRepository(db, ids, clock, dispatchers)
+        assignments = RoomStudentBatchRepository(db, ids, clock, dispatchers)
     }
 
     @After
@@ -68,18 +74,39 @@ abstract class FeatureRoom {
         result.value
     }
 
-    protected fun createStudent(instituteId: String, name: String = "Ravi Kumar") = runBlocking {
+    protected fun createStudent(
+        instituteId: String,
+        name: String = "Ravi Kumar",
+        code: String = "A-01",
+    ) = runBlocking {
         val result = students.create(
             NewStudent(
                 instituteId = instituteId,
                 name = name,
-                studentCode = "A-01",
+                studentCode = code,
                 guardianName = "Guardian",
                 guardianPhone = "9876543210",
                 phone = null,
                 photoUri = null,
                 admissionDate = LocalDate.of(2026, 4, 1),
                 notes = null,
+            ),
+        )
+        check(result is DataResult.Success) { result }
+        result.value
+    }
+
+    protected fun createBatch(instituteId: String, name: String = "Algebra"): Batch = runBlocking {
+        val result = batches.create(
+            NewBatch(
+                instituteId = instituteId,
+                name = name,
+                subject = "Maths",
+                daysOfWeek = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
+                startMinute = 16 * 60,
+                endMinute = 17 * 60,
+                room = "Hall",
+                capacity = 20,
             ),
         )
         check(result is DataResult.Success) { result }
