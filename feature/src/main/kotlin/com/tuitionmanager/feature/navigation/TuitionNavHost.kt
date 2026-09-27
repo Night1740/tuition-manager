@@ -31,6 +31,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.tuitionmanager.feature.R
+import com.tuitionmanager.feature.batches.AddStudentsScreen
+import com.tuitionmanager.feature.batches.BATCH_SAVED
+import com.tuitionmanager.feature.batches.BATCH_SAVED_KEY
+import com.tuitionmanager.feature.batches.BatchDetailsScreen
+import com.tuitionmanager.feature.batches.BatchFormScreen
+import com.tuitionmanager.feature.batches.BatchListScreen
 import com.tuitionmanager.feature.dashboard.DashboardScreen
 import com.tuitionmanager.feature.dashboard.DashboardViewModel
 import com.tuitionmanager.feature.onboarding.OnboardingScreen
@@ -124,10 +130,37 @@ private fun AppNavHost(
                 )
             }
             composable<BatchesRoute> {
-                MessageScreen(
-                    title = stringResource(R.string.nav_batches),
-                    body = stringResource(R.string.batches_placeholder),
+                BatchListScreen(
                     onBack = { navController.popBackStack() },
+                    onCreate = { navController.navigate(AddBatchRoute) },
+                    onOpen = { batchId -> navController.navigate(BatchDetailsRoute(batchId)) },
+                )
+            }
+            composable<AddBatchRoute> {
+                BatchFormScreen(
+                    onBack = { navController.popBackStack() },
+                    onSaved = { navController.finishBatchSave() },
+                    viewModel = hiltViewModel(),
+                )
+            }
+            composable<EditBatchRoute> {
+                BatchFormScreen(
+                    onBack = { navController.popBackStack() },
+                    onSaved = { navController.finishBatchSave() },
+                )
+            }
+            composable<BatchDetailsRoute> { entry ->
+                val route = entry.toRoute<BatchDetailsRoute>()
+                BatchDetailsScreen(
+                    onBack = { navController.popBackStack() },
+                    onEdit = { navController.navigate(EditBatchRoute(route.batchId)) },
+                    onAddStudents = { navController.navigate(AddStudentsToBatchRoute(route.batchId)) },
+                )
+            }
+            composable<AddStudentsToBatchRoute> {
+                AddStudentsScreen(
+                    onBack = { navController.popBackStack() },
+                    onSaved = { navController.popBackStack() },
                 )
             }
             composable<AttendanceRoute> {
@@ -160,13 +193,23 @@ private fun StudentSavedMessages(
 ) {
     val entry by navController.currentBackStackEntryAsState()
     val savedText = stringResource(R.string.student_saved)
+    val batchSavedText = stringResource(R.string.batch_saved)
     LaunchedEffect(entry?.id) {
         val handle = entry?.savedStateHandle ?: return@LaunchedEffect
         if (handle.get<String>(STUDENT_SAVED_KEY) == STUDENT_SAVED) {
             handle.remove<String>(STUDENT_SAVED_KEY)
             snackbarHostState.showSnackbar(savedText)
         }
+        if (handle.get<String>(BATCH_SAVED_KEY) == BATCH_SAVED) {
+            handle.remove<String>(BATCH_SAVED_KEY)
+            snackbarHostState.showSnackbar(batchSavedText)
+        }
     }
+}
+
+private fun NavHostController.finishBatchSave() {
+    previousBackStackEntry?.savedStateHandle?.set(BATCH_SAVED_KEY, BATCH_SAVED)
+    popBackStack()
 }
 
 private fun NavHostController.finishStudentSave() {

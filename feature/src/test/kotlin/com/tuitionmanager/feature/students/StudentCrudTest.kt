@@ -158,10 +158,13 @@ class StudentCrudTest : FeatureRoom() {
         list.onQuery("92222")
         assertTrue(list.state.awaitReady { it.query == "92222" }.noResults)
 
-        list.onShowArchived(true)
-        val withArchived = list.state.awaitReady { it.showArchived && it.query == "92222" }
+        list.onArchivedOnly(true)
+        val withArchived = list.state.awaitReady { it.archivedOnly && it.query == "92222" }
         assertEquals(listOf("Ravi"), withArchived.rows.map { it.name })
         assertTrue(withArchived.rows.single().archived)
+        list.onQuery("")
+        val archivedOnly = list.state.awaitReady { it.archivedOnly && it.query.isEmpty() }
+        assertEquals(listOf("Ravi"), archivedOnly.rows.map { it.name })
 
         val dashboard = DashboardViewModel(institutes, students, batches)
         val counts = dashboard.state.await { it is DashboardUiState.Ready } as DashboardUiState.Ready
@@ -198,9 +201,9 @@ class StudentCrudTest : FeatureRoom() {
         val list = StudentListViewModel(institutes, students)
         list.searchDebounceMillis = 0
         assertTrue(list.state.awaitReady().rows.none { it.id == student.id })
-        list.onShowArchived(true)
+        list.onArchivedOnly(true)
         assertTrue(
-            list.state.awaitReady { it.showArchived }.rows.any { it.id == student.id && it.archived },
+            list.state.awaitReady { it.archivedOnly }.rows.any { it.id == student.id && it.archived },
         )
 
         details.restore()

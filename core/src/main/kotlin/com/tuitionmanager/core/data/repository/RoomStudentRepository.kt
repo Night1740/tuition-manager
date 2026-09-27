@@ -40,21 +40,21 @@ class RoomStudentRepository @Inject constructor(
             .flowOn(dispatchers.io)
 
     override fun observeActive(instituteId: String, query: String): Flow<DataResult<List<Student>>> =
-        observeList(instituteId, includeArchived = false, query = query)
+        observeList(instituteId, archivedOnly = false, query = query)
 
     override fun observeList(
         instituteId: String,
-        includeArchived: Boolean,
+        archivedOnly: Boolean,
         query: String,
     ): Flow<DataResult<List<Student>>> {
         val trimmed = query.trim()
         val source = if (trimmed.isEmpty()) {
-            if (includeArchived) dao.observeAll(instituteId) else dao.observeActive(instituteId)
+            if (archivedOnly) dao.observeArchived(instituteId) else dao.observeActive(instituteId)
         } else {
             val digits = trimmed.filter { it.isDigit() }
             dao.observeMatching(
                 instituteId = instituteId,
-                includeArchived = if (includeArchived) 1 else 0,
+                archivedOnly = if (archivedOnly) 1 else 0,
                 pattern = toContainsLikePattern(trimmed),
                 digitPattern = if (digits.isEmpty()) "" else toContainsLikePattern(digits),
             )

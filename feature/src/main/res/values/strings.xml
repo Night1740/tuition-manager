@@ -31,7 +31,10 @@
     <string name="nav_settings">Settings</string>
     <string name="nav_back">Back</string>
 
-    <string name="batches_placeholder">The batch list is not ready yet.</string>
+    <string name="list_filter_active">Active</string>
+    <string name="list_filter_archived">Archived</string>
+    <string name="list_showing_active">Showing active</string>
+    <string name="list_showing_archived">Showing archived</string>
 
     <string name="student_add_title">Add Student</string>
     <string name="student_edit_title">Edit student</string>
@@ -51,9 +54,8 @@
     <string name="student_archive">Archive</string>
     <string name="student_restore">Restore</string>
     <string name="student_search">Search</string>
-    <string name="student_show_archived">Show archived</string>
-    <string name="student_showing_archived">Showing archived</string>
     <string name="student_no_results">No results</string>
+    <string name="student_no_archived">No archived students</string>
     <string name="student_archived_label">Archived</string>
     <string name="student_none">None</string>
     <string name="student_batches">Batches</string>
@@ -79,5 +81,53 @@
     <string name="student_archive_title">Archive this student?</string>
     <string name="student_archive_body">This student will be removed from their batches. Restoring them will not add them back.</string>
     <string name="student_archive_confirm">Archive</string>
+    <string name="student_add_batch">Add to batch</string>
+    <string name="student_move_batch">Move to another batch</string>
+    <string name="student_remove_batch">Remove</string>
+    <string name="student_remove_batch_body">Remove %1$s from this batch?</string>
+    <string name="student_remove_confirm">Remove</string>
+    <string name="student_no_batch_available">No other batches</string>
+
+    <string name="batch_create">Create Batch</string>
+    <string name="batch_add_title">Create Batch</string>
+    <string name="batch_edit_title">Edit batch</string>
+    <string name="batch_details_title">Batch</string>
+    <string name="batch_name">Batch name</string>
+    <string name="batch_subject">Subject</string>
+    <string name="batch_days">Days</string>
+    <string name="batch_start_time">Start %1$s</string>
+    <string name="batch_end_time">End %1$s</string>
+    <string name="batch_room">Room (optional)</string>
+    <string name="batch_capacity">Capacity</string>
+    <string name="batch_schedule">Days and time</string>
+    <string name="batch_students">Students</string>
+    <string name="batch_empty">No batches yet</string>
+    <string name="batch_no_archived">No archived batches</string>
+    <string name="batch_no_students">No students in this batch</string>
+    <string name="batch_no_students_to_add">No students to add</string>
+    <string name="batch_add_students">Add students</string>
+    <string name="batch_add_selected">Add selected</string>
+    <string name="batch_remove_student">Remove from batch</string>
+    <string name="batch_remove_student_body">Remove %1$s from this batch?</string>
+    <string name="batch_saved">Batch saved</string>
+    <string name="batch_list_error">Could not load batches.</string>
+    <string name="batch_error_load">Could not open this batch.</string>
+    <string name="batch_action_error">Could not update this batch. Try again.</string>
+    <string name="batch_archive_title">Archive this batch?</string>
+    <string name="batch_error_name">Enter a batch name.</string>
+    <string name="batch_error_name_long">Name is too long.</string>
+    <string name="batch_error_subject">Enter a subject.</string>
+    <string name="batch_error_subject_long">Subject is too long.</string>
+    <string name="batch_error_days">Select at least one day.</string>
+    <string name="batch_error_time">End time must be after the start time.</string>
+    <string name="batch_error_room">Room is too long.</string>
+    <string name="batch_error_capacity">Enter a capacity from 1 to 2000.</string>
+    <string name="batch_over_capacity_title">Over capacity</string>
+    <string name="batch_over_capacity_body">This batch can take %1$d students and already has %2$d. Adding %3$d goes over that limit.</string>
+    <string name="batch_over_capacity_confirm">Continue anyway</string>
+    <plurals name="batch_archive_body">
+        <item quantity="one">%d student will be removed from this batch. Restoring the batch will not add them back.</item>
+        <item quantity="other">%d students will be removed from this batch. Restoring the batch will not add them back.</item>
+    </plurals>
     <string name="coming_soon">Coming soon</string>
 </resources>

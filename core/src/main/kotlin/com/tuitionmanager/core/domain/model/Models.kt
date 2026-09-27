@@ -105,3 +105,15 @@ data class Enrollment(
     val assignment: StudentBatch,
     val student: Student,
 )
+
+/** A batch plus how many active students currently have an open assignment. */
+data class BatchRoster(
+    val batch: Batch,
+    val studentCount: Int,
+)
+
+/** An open assignment together with the batch it points at. */
+data class OpenAssignment(
+    val assignmentId: String,
+    val batch: Batch,
+)

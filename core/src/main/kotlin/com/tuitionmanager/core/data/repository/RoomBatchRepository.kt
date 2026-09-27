@@ -10,19 +10,14 @@ import com.tuitionmanager.core.domain.error.DataResult
 import com.tuitionmanager.core.domain.error.EntityKind
 import com.tuitionmanager.core.domain.error.InvalidCode
 import com.tuitionmanager.core.domain.model.Batch
+import com.tuitionmanager.core.domain.model.BatchRoster
 import com.tuitionmanager.core.domain.model.NewBatch
 import com.tuitionmanager.core.domain.repository.BatchRepository
-import com.tuitionmanager.core.domain.validation.MAX_BATCH_CAPACITY
-import com.tuitionmanager.core.domain.validation.MAX_ROOM_LENGTH
-import com.tuitionmanager.core.domain.validation.MAX_SUBJECT_LENGTH
-import com.tuitionmanager.core.domain.validation.MIN_BATCH_CAPACITY
-import com.tuitionmanager.core.domain.validation.OptionalText
-import com.tuitionmanager.core.domain.validation.isValidClockMinutes
-import com.tuitionmanager.core.domain.validation.normalizeRequiredName
-import com.tuitionmanager.core.domain.validation.parseOptionalText
+import com.tuitionmanager.core.domain.validation.BatchFormValidation
+import com.tuitionmanager.core.domain.validation.validateBatchForm
 import com.tuitionmanager.core.id.IdGenerator
 import java.time.Clock
-import java.time.DayOfWeek
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -48,6 +43,33 @@ class RoomBatchRepository @Inject constructor(
     override fun observeActive(instituteId: String): Flow<DataResult<List<Batch>>> =
         observe(instituteId, includeArchived = false)
 
+    override fun observeRoster(
+        instituteId: String,
+        archivedOnly: Boolean,
+    ): Flow<DataResult<List<BatchRoster>>> =
+        dao.observeRoster(instituteId, if (archivedOnly) 1 else 0)
+            .map { rows ->
+                DataResult.Success(
+                    rows.map { row ->
+                        BatchRoster(batch = row.batch.toDomain(), studentCount = row.studentCount)
+                    },
+                )
+            }
+            .storageFailures("observe_batches")
+            .flowOn(dispatchers.io)
+
+    override fun observeOne(id: String): Flow<DataResult<Batch>> =
+        dao.observeById(id)
+            .map { entity ->
+                if (entity == null) {
+                    DataResult.Failure(DataError.NotFound(EntityKind.Batch))
+                } else {
+                    DataResult.Success(entity.toDomain())
+                }
+            }
+            .storageFailures("observe_batch")
+            .flowOn(dispatchers.io)
+
     override suspend fun countActive(instituteId: String): DataResult<Int> = runData("count_batches") {
         withContext(dispatchers.io) {
             DataResult.Success(dao.countActive(instituteId))
@@ -63,17 +85,20 @@ class RoomBatchRepository @Inject constructor(
     }
 
     override suspend fun create(draft: NewBatch): DataResult<Batch> = runData("create_batch") {
-        val fields = batchFields(
-            name = draft.name,
-            subject = draft.subject,
-            days = draft.daysOfWeek,
-            startMinute = draft.startMinute,
-            endMinute = draft.endMinute,
-            room = draft.room,
-            capacity = draft.capacity,
-        )
-        if (fields is BatchFieldError) return@runData DataResult.Failure(DataError.Invalid(fields.code))
-        val parsed = fields as BatchFields
+        val parsed = when (
+            val validated = validateBatchForm(
+                name = draft.name,
+                subject = draft.subject,
+                days = draft.daysOfWeek,
+                startMinute = draft.startMinute,
+                endMinute = draft.endMinute,
+                room = draft.room,
+                capacity = draft.capacity,
+            )
+        ) {
+            is BatchFormValidation.Rejected -> return@runData rejected(validated)
+            is BatchFormValidation.Accepted -> validated.batch
+        }
         withContext(dispatchers.io) {
             if (database.instituteDao().getById(draft.instituteId) == null) {
                 return@withContext DataResult.Failure(DataError.NotFound(EntityKind.Institute))
@@ -84,7 +109,7 @@ class RoomBatchRepository @Inject constructor(
                 instituteId = draft.instituteId,
                 name = parsed.name,
                 subject = parsed.subject,
-                daysOfWeek = DaysOfWeekCodec.encode(parsed.days),
+                daysOfWeek = DaysOfWeekCodec.encode(parsed.daysOfWeek),
                 startMinute = parsed.startMinute,
                 endMinute = parsed.endMinute,
                 room = parsed.room,
@@ -99,17 +124,20 @@ class RoomBatchRepository @Inject constructor(
     }
 
     override suspend fun update(batch: Batch): DataResult<Batch> = runData("update_batch") {
-        val fields = batchFields(
-            name = batch.name,
-            subject = batch.subject,
-            days = batch.daysOfWeek,
-            startMinute = batch.startMinute,
-            endMinute = batch.endMinute,
-            room = batch.room,
-            capacity = batch.capacity,
-        )
-        if (fields is BatchFieldError) return@runData DataResult.Failure(DataError.Invalid(fields.code))
-        val parsed = fields as BatchFields
+        val parsed = when (
+            val validated = validateBatchForm(
+                name = batch.name,
+                subject = batch.subject,
+                days = batch.daysOfWeek,
+                startMinute = batch.startMinute,
+                endMinute = batch.endMinute,
+                room = batch.room,
+                capacity = batch.capacity,
+            )
+        ) {
+            is BatchFormValidation.Rejected -> return@runData rejected(validated)
+            is BatchFormValidation.Accepted -> validated.batch
+        }
         withContext(dispatchers.io) {
             val existing = dao.getById(batch.id)
                 ?: return@withContext DataResult.Failure(DataError.NotFound(EntityKind.Batch))
@@ -119,7 +147,7 @@ class RoomBatchRepository @Inject constructor(
             val updated = existing.copy(
                 name = parsed.name,
                 subject = parsed.subject,
-                daysOfWeek = DaysOfWeekCodec.encode(parsed.days),
+                daysOfWeek = DaysOfWeekCodec.encode(parsed.daysOfWeek),
                 startMinute = parsed.startMinute,
                 endMinute = parsed.endMinute,
                 room = parsed.room,
@@ -131,10 +159,10 @@ class RoomBatchRepository @Inject constructor(
         }
     }
 
-    override suspend fun archive(id: String): DataResult<Batch> = runData("archive_batch") {
+    override suspend fun archive(id: String, on: LocalDate): DataResult<Batch> = runData("archive_batch") {
         withContext(dispatchers.io) {
             val now = clock.instant()
-            dao.archive(id, now, now)
+            dao.archiveAndCloseAssignments(id, now, now, on)
             val entity = dao.getById(id)
                 ?: return@withContext DataResult.Failure(DataError.NotFound(EntityKind.Batch))
             DataResult.Success(entity.toDomain())
@@ -155,46 +183,7 @@ class RoomBatchRepository @Inject constructor(
     }
 }
 
-private sealed interface ParsedBatch
-
-private data class BatchFields(
-    val name: String,
-    val subject: String,
-    val days: Set<DayOfWeek>,
-    val startMinute: Int,
-    val endMinute: Int,
-    val room: String?,
-    val capacity: Int,
-) : ParsedBatch
-
-private data class BatchFieldError(val code: InvalidCode) : ParsedBatch
-
-private fun batchFields(
-    name: String,
-    subject: String,
-    days: Set<DayOfWeek>,
-    startMinute: Int,
-    endMinute: Int,
-    room: String?,
-    capacity: Int,
-): ParsedBatch {
-    val normalizedName = normalizeRequiredName(name) ?: return BatchFieldError(InvalidCode.BlankBatchName)
-    val normalizedSubject = normalizeRequiredName(subject, MAX_SUBJECT_LENGTH)
-        ?: return BatchFieldError(InvalidCode.BlankSubject)
-    if (days.isEmpty()) return BatchFieldError(InvalidCode.InvalidSchedule)
-    if (!isValidClockMinutes(startMinute, endMinute)) return BatchFieldError(InvalidCode.InvalidSchedule)
-    if (capacity !in MIN_BATCH_CAPACITY..MAX_BATCH_CAPACITY) {
-        return BatchFieldError(InvalidCode.InvalidCapacity)
-    }
-    val parsedRoom = parseOptionalText(room, MAX_ROOM_LENGTH)
-    if (parsedRoom is OptionalText.TooLong) return BatchFieldError(InvalidCode.InvalidSchedule)
-    return BatchFields(
-        name = normalizedName,
-        subject = normalizedSubject,
-        days = days,
-        startMinute = startMinute,
-        endMinute = endMinute,
-        room = (parsedRoom as OptionalText.Value).text,
-        capacity = capacity,
-    )
+private fun rejected(validation: BatchFormValidation.Rejected): DataResult<Nothing> {
+    val code = validation.errors.firstOrNull()?.code ?: InvalidCode.BlankBatchName
+    return DataResult.Failure(DataError.Invalid(code))
 }

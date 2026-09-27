@@ -2,13 +2,13 @@
 
 Local-first Android app for a small tuition or coaching class. Room on the phone is the only source of truth. There is no cloud sync in this version.
 
-Phase 1C adds student list, add, edit, details, archive, and search. The batch screen is still a placeholder.
+Phase 1D adds batch list, create, edit, details, archive, and student assignment. Attendance is still a placeholder.
 
 ## Modules
 
 - `:app` — application, single activity, Material 3 theme
 - `:core` — ids, money, Room, repositories
-- `:feature` — navigation, onboarding, dashboard, students
+- `:feature` — navigation, onboarding, dashboard, students, batches
 
 Package name: `com.tuitionmanager`.
 

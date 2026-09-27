@@ -1,6 +1,8 @@
 package com.tuitionmanager.core.data.local.dao
 
+import androidx.room3.ColumnInfo
 import androidx.room3.Dao
+import androidx.room3.Embedded
 import androidx.room3.Insert
 import androidx.room3.Query
 import androidx.room3.Transaction
@@ -61,8 +63,15 @@ abstract class StudentDao {
     abstract fun observeActive(instituteId: String): Flow<List<StudentEntity>>
 
     @Query(
+        "SELECT * FROM students WHERE institute_id = :instituteId AND archived_at IS NOT NULL " +
+            "ORDER BY name COLLATE NOCASE, student_code COLLATE NOCASE",
+    )
+    abstract fun observeArchived(instituteId: String): Flow<List<StudentEntity>>
+
+    @Query(
         "SELECT * FROM students WHERE institute_id = :instituteId " +
-            "AND (:includeArchived = 1 OR archived_at IS NULL) " +
+            "AND ((:archivedOnly = 1 AND archived_at IS NOT NULL) " +
+            "OR (:archivedOnly = 0 AND archived_at IS NULL)) " +
             "AND (name COLLATE NOCASE LIKE :pattern ESCAPE '\\' " +
             "OR student_code COLLATE NOCASE LIKE :pattern ESCAPE '\\' " +
             "OR (:digitPattern != '' AND (" +
@@ -72,7 +81,28 @@ abstract class StudentDao {
     )
     abstract fun observeMatching(
         instituteId: String,
-        includeArchived: Int,
+        archivedOnly: Int,
+        pattern: String,
+        digitPattern: String,
+    ): Flow<List<StudentEntity>>
+
+    @Query(
+        "SELECT students.* FROM students " +
+            "INNER JOIN batches ON batches.institute_id = students.institute_id " +
+            "AND batches.id = :batchId " +
+            "WHERE students.archived_at IS NULL " +
+            "AND students.id NOT IN (" +
+            "SELECT student_id FROM student_batch " +
+            "WHERE batch_id = :batchId AND ended_on IS NULL) " +
+            "AND (:pattern = '' OR students.name COLLATE NOCASE LIKE :pattern ESCAPE '\\' " +
+            "OR students.student_code COLLATE NOCASE LIKE :pattern ESCAPE '\\' " +
+            "OR (:digitPattern != '' AND (" +
+            "IFNULL(students.guardian_phone, '') LIKE :digitPattern ESCAPE '\\' " +
+            "OR IFNULL(students.phone, '') LIKE :digitPattern ESCAPE '\\'))) " +
+            "ORDER BY students.name COLLATE NOCASE, students.student_code COLLATE NOCASE",
+    )
+    abstract fun observeAssignable(
+        batchId: String,
         pattern: String,
         digitPattern: String,
     ): Flow<List<StudentEntity>>
@@ -131,47 +161,123 @@ abstract class StudentDao {
     }
 }
 
+data class BatchRosterRow(
+    @Embedded val batch: BatchEntity,
+    @ColumnInfo(name = "student_count") val studentCount: Int,
+)
+
+data class OpenAssignmentRow(
+    @ColumnInfo(name = "assignment_id") val assignmentId: String,
+    @Embedded val batch: BatchEntity,
+)
+
 @Dao
-interface BatchDao {
+abstract class BatchDao {
     @Query(
         "SELECT * FROM batches WHERE institute_id = :instituteId " +
             "ORDER BY name COLLATE NOCASE",
     )
-    fun observeAll(instituteId: String): Flow<List<BatchEntity>>
+    abstract fun observeAll(instituteId: String): Flow<List<BatchEntity>>
 
     @Query(
         "SELECT * FROM batches WHERE institute_id = :instituteId AND archived_at IS NULL " +
             "ORDER BY name COLLATE NOCASE",
     )
-    fun observeActive(instituteId: String): Flow<List<BatchEntity>>
+    abstract fun observeActive(instituteId: String): Flow<List<BatchEntity>>
+
+    @Query(
+        "SELECT batches.*, (" +
+            "SELECT COUNT(*) FROM student_batch " +
+            "INNER JOIN students ON students.id = student_batch.student_id " +
+            "WHERE student_batch.batch_id = batches.id AND student_batch.ended_on IS NULL " +
+            "AND students.archived_at IS NULL" +
+            ") AS student_count FROM batches WHERE institute_id = :instituteId " +
+            "AND ((:archivedOnly = 1 AND archived_at IS NOT NULL) " +
+            "OR (:archivedOnly = 0 AND archived_at IS NULL)) " +
+            "ORDER BY name COLLATE NOCASE",
+    )
+    abstract fun observeRoster(instituteId: String, archivedOnly: Int): Flow<List<BatchRosterRow>>
+
+    @Query("SELECT * FROM batches WHERE id = :id")
+    abstract fun observeById(id: String): Flow<BatchEntity?>
 
     @Query(
         "SELECT COUNT(*) FROM batches WHERE institute_id = :instituteId AND archived_at IS NULL",
     )
-    suspend fun countActive(instituteId: String): Int
+    abstract suspend fun countActive(instituteId: String): Int
 
     @Query("SELECT * FROM batches WHERE id = :id")
-    suspend fun getById(id: String): BatchEntity?
+    abstract suspend fun getById(id: String): BatchEntity?
 
     @Query(
-        "SELECT batches.* FROM batches " +
+        "SELECT student_batch.id AS assignment_id, batches.* FROM batches " +
             "INNER JOIN student_batch ON student_batch.batch_id = batches.id " +
             "WHERE student_batch.student_id = :studentId AND student_batch.ended_on IS NULL " +
             "ORDER BY batches.name COLLATE NOCASE",
     )
-    fun observeOpenForStudent(studentId: String): Flow<List<BatchEntity>>
+    abstract fun observeOpenAssignments(studentId: String): Flow<List<OpenAssignmentRow>>
+
+    @Query(
+        "SELECT batches.* FROM batches " +
+            "INNER JOIN students ON students.institute_id = batches.institute_id " +
+            "AND students.id = :studentId " +
+            "WHERE batches.archived_at IS NULL " +
+            "AND batches.id NOT IN (" +
+            "SELECT batch_id FROM student_batch " +
+            "WHERE student_id = :studentId AND ended_on IS NULL) " +
+            "ORDER BY batches.name COLLATE NOCASE",
+    )
+    abstract fun observeAvailableForStudent(studentId: String): Flow<List<BatchEntity>>
 
     @Insert
-    suspend fun insert(entity: BatchEntity)
+    abstract suspend fun insert(entity: BatchEntity)
 
     @Update
-    suspend fun update(entity: BatchEntity)
+    abstract suspend fun update(entity: BatchEntity)
 
     @Query(
         "UPDATE batches SET archived_at = :archivedAt, updated_at = :updatedAt " +
             "WHERE id = :id AND archived_at IS NULL",
     )
-    suspend fun archive(id: String, archivedAt: Instant, updatedAt: Instant): Int
+    abstract suspend fun archive(id: String, archivedAt: Instant, updatedAt: Instant): Int
+
+    @Query(
+        "UPDATE student_batch SET ended_on = :endedOn, active_slot = NULL " +
+            "WHERE batch_id = :batchId AND ended_on IS NULL",
+    )
+    abstract suspend fun endOpenAssignments(batchId: String, endedOn: LocalDate): Int
+
+    /**
+     * Archives the batch and closes open assignments together.
+     * A batch that is already archived is left unchanged, including assignment history.
+     */
+    @Transaction
+    open suspend fun archiveAndCloseAssignments(
+        id: String,
+        archivedAt: Instant,
+        updatedAt: Instant,
+        endedOn: LocalDate,
+    ): Int {
+        val updated = archive(id, archivedAt, updatedAt)
+        if (updated == 1) {
+            endOpenAssignments(id, endedOn)
+        }
+        return updated
+    }
+}
+
+sealed interface MembershipWrite {
+    data class Written(val count: Int) : MembershipWrite
+
+    data class OverCapacity(
+        val enrolled: Int,
+        val adding: Int,
+        val capacity: Int,
+    ) : MembershipWrite
+
+    data object Duplicate : MembershipWrite
+
+    data object Missing : MembershipWrite
 }
 
 @Dao
@@ -214,17 +320,32 @@ abstract class StudentBatchDao {
     )
     abstract suspend fun end(id: String, endedOn: LocalDate): Int
 
-    /** @return 1 inserted, -1 batch is full. */
+    /**
+     * Inserts every row or none. A duplicate open slot or a capacity block rolls back.
+     * [allowOverCapacity] skips the capacity check and still rejects a duplicate open slot.
+     */
     @Transaction
-    open suspend fun insertActive(entity: StudentBatchEntity, capacity: Int): Int {
-        if (countActiveStudents(entity.batchId) >= capacity) return -1
-        insert(entity)
-        return 1
+    open suspend fun insertMany(
+        entities: List<StudentBatchEntity>,
+        capacity: Int,
+        allowOverCapacity: Boolean,
+    ): MembershipWrite {
+        if (entities.isEmpty()) return MembershipWrite.Written(0)
+        for (entity in entities) {
+            if (findActive(entity.studentId, entity.batchId) != null) return MembershipWrite.Duplicate
+        }
+        val enrolled = countActiveStudents(entities.first().batchId)
+        val adding = entities.size
+        if (!allowOverCapacity && enrolled + adding > capacity) {
+            return MembershipWrite.OverCapacity(enrolled, adding, capacity)
+        }
+        entities.forEach { insert(it) }
+        return MembershipWrite.Written(adding)
     }
 
     /**
-     * @return 1 moved, -1 destination is full, 0 the source assignment was no longer open.
-     * Full and missing cases roll back so the source row stays unchanged.
+     * Closes the source row and inserts the destination in one transaction.
+     * A full destination or a missing source leaves the source row open.
      */
     @Transaction
     open suspend fun move(
@@ -232,11 +353,16 @@ abstract class StudentBatchDao {
         endedOn: LocalDate,
         created: StudentBatchEntity,
         capacity: Int,
-    ): Int {
-        if (countActiveStudents(created.batchId) >= capacity) return -1
-        if (end(fromId, endedOn) != 1) return 0
+        allowOverCapacity: Boolean,
+    ): MembershipWrite {
+        if (findActive(created.studentId, created.batchId) != null) return MembershipWrite.Duplicate
+        val enrolled = countActiveStudents(created.batchId)
+        if (!allowOverCapacity && enrolled + 1 > capacity) {
+            return MembershipWrite.OverCapacity(enrolled, 1, capacity)
+        }
+        if (end(fromId, endedOn) != 1) return MembershipWrite.Missing
         insert(created)
-        return 1
+        return MembershipWrite.Written(1)
     }
 }
 

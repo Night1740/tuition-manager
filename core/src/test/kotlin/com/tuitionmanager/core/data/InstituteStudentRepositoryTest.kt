@@ -152,7 +152,7 @@ class InstituteStudentRepositoryTest : RoomFixture() {
         assertTrue(students.observeActive(institute.id, "A_B").awaitSuccess().isEmpty())
         assertEquals(
             listOf("A_B"),
-            students.observeList(institute.id, includeArchived = true, query = "A_B").awaitSuccess().map { it.name },
+            students.observeList(institute.id, archivedOnly = true, query = "A_B").awaitSuccess().map { it.name },
         )
     }
 

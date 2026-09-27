@@ -2,11 +2,13 @@ package com.tuitionmanager.core.domain.repository
 
 import com.tuitionmanager.core.domain.error.DataResult
 import com.tuitionmanager.core.domain.model.Batch
+import com.tuitionmanager.core.domain.model.BatchRoster
 import com.tuitionmanager.core.domain.model.Enrollment
 import com.tuitionmanager.core.domain.model.Institute
 import com.tuitionmanager.core.domain.model.NewBatch
 import com.tuitionmanager.core.domain.model.NewInstitute
 import com.tuitionmanager.core.domain.model.NewStudent
+import com.tuitionmanager.core.domain.model.OpenAssignment
 import com.tuitionmanager.core.domain.model.Student
 import com.tuitionmanager.core.domain.model.StudentBatch
 import java.time.LocalDate
@@ -27,10 +29,14 @@ interface StudentRepository {
 
     fun observeActive(instituteId: String, query: String = ""): Flow<DataResult<List<Student>>>
 
-    /** SQL search over name, student code, and phone digits. Blank [query] returns the filtered list. */
+    /**
+     * SQL search over name, student code, and phone digits.
+     * [archivedOnly] selects one list: archived students, or active students. The two are never mixed.
+     * A blank [query] returns that whole list.
+     */
     fun observeList(
         instituteId: String,
-        includeArchived: Boolean,
+        archivedOnly: Boolean,
         query: String,
     ): Flow<DataResult<List<Student>>>
 
@@ -61,6 +67,14 @@ interface BatchRepository {
 
     fun observeActive(instituteId: String): Flow<DataResult<List<Batch>>>
 
+    /**
+     * Active batches, or archived batches, with the count of active students on an open assignment.
+     * The two lists are never mixed.
+     */
+    fun observeRoster(instituteId: String, archivedOnly: Boolean): Flow<DataResult<List<BatchRoster>>>
+
+    fun observeOne(id: String): Flow<DataResult<Batch>>
+
     suspend fun countActive(instituteId: String): DataResult<Int>
 
     suspend fun get(id: String): DataResult<Batch>
@@ -69,7 +83,11 @@ interface BatchRepository {
 
     suspend fun update(batch: Batch): DataResult<Batch>
 
-    suspend fun archive(id: String): DataResult<Batch>
+    /**
+     * Soft-archives the batch and ends every open assignment on [on].
+     * [on] is an exclusive end. Restoring the batch does not reopen the assignments.
+     */
+    suspend fun archive(id: String, on: LocalDate): DataResult<Batch>
 
     suspend fun restore(id: String): DataResult<Batch>
 }
@@ -81,14 +99,36 @@ interface StudentBatchRepository {
 
     fun observeHistory(studentId: String): Flow<DataResult<List<StudentBatch>>>
 
-    /** Batches with an open assignment for this student. Read-only on the student screen. */
-    fun observeOpenBatches(studentId: String): Flow<DataResult<List<Batch>>>
+    /** Open assignments for this student, with the batch on each row. */
+    fun observeOpenAssignments(studentId: String): Flow<DataResult<List<OpenAssignment>>>
+
+    /** Active batches this student is not already in. */
+    fun observeAvailableBatches(studentId: String): Flow<DataResult<List<Batch>>>
+
+    /**
+     * Active students who are not already in [batchId].
+     * Blank [query] returns that whole list. A non-blank query uses the same SQL search as the student list.
+     */
+    fun observeAssignableStudents(batchId: String, query: String): Flow<DataResult<List<Student>>>
 
     suspend fun assign(
         studentId: String,
         batchId: String,
         startedOn: LocalDate,
+        allowOverCapacity: Boolean = false,
     ): DataResult<StudentBatch>
+
+    /**
+     * Assigns every student in one transaction. A failure writes nothing.
+     * When the batch would go past capacity and [allowOverCapacity] is false, the result is
+     * [com.tuitionmanager.core.domain.error.DataError.OverCapacity] and no row is inserted.
+     */
+    suspend fun assignMany(
+        studentIds: List<String>,
+        batchId: String,
+        startedOn: LocalDate,
+        allowOverCapacity: Boolean = false,
+    ): DataResult<List<StudentBatch>>
 
     suspend fun end(assignmentId: String, endedOn: LocalDate): DataResult<StudentBatch>
 
@@ -97,5 +137,6 @@ interface StudentBatchRepository {
         fromBatchId: String,
         toBatchId: String,
         on: LocalDate,
+        allowOverCapacity: Boolean = false,
     ): DataResult<StudentBatch>
 }

@@ -1,21 +1,26 @@
-package com.tuitionmanager.feature.students
+package com.tuitionmanager.feature.batches
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -24,14 +29,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tuitionmanager.feature.R
 
 @Composable
-fun StudentListScreen(
-    onAdd: () -> Unit,
-    onOpen: (String) -> Unit,
+fun AddStudentsScreen(
     onBack: () -> Unit,
-    viewModel: StudentListViewModel = hiltViewModel(),
+    onSaved: () -> Unit,
+    viewModel: AddStudentsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val query by viewModel.queryText.collectAsStateWithLifecycle()
+    LaunchedEffect(state) {
+        if (state is AddStudentsUiState.Ready && (state as AddStudentsUiState.Ready).saved) onSaved()
+    }
     Scaffold { innerPadding ->
         Column(
             modifier = Modifier
@@ -42,26 +49,26 @@ fun StudentListScreen(
         ) {
             WideButton(stringResource(R.string.nav_back), onBack)
             Text(
-                text = stringResource(R.string.nav_students),
+                text = stringResource(R.string.batch_add_students),
                 style = MaterialTheme.typography.headlineMedium,
             )
             when (val current = state) {
-                StudentListUiState.Loading -> {
+                AddStudentsUiState.Loading -> {
                     CircularProgressIndicator(modifier = Modifier.heightIn(min = 48.dp))
                     Text(
                         text = stringResource(R.string.start_loading),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
-                StudentListUiState.Error -> {
+                AddStudentsUiState.Error -> {
                     Text(
-                        text = stringResource(R.string.student_list_error),
+                        text = stringResource(R.string.batch_list_error),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.error,
                     )
                     WideButton(stringResource(R.string.start_retry), viewModel::retry)
                 }
-                is StudentListUiState.Ready -> {
+                is AddStudentsUiState.Ready -> {
                     OutlinedTextField(
                         value = query,
                         onValueChange = viewModel::onQuery,
@@ -69,26 +76,6 @@ fun StudentListScreen(
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.fillMaxWidth(),
-                    )
-                    WideButton(
-                        label = stringResource(
-                            if (current.archivedOnly) {
-                                R.string.list_filter_active
-                            } else {
-                                R.string.list_showing_active
-                            },
-                        ),
-                        onClick = { viewModel.onArchivedOnly(false) },
-                    )
-                    WideButton(
-                        label = stringResource(
-                            if (current.archivedOnly) {
-                                R.string.list_showing_archived
-                            } else {
-                                R.string.list_filter_archived
-                            },
-                        ),
-                        onClick = { viewModel.onArchivedOnly(true) },
                     )
                     Column(
                         modifier = Modifier
@@ -98,13 +85,7 @@ fun StudentListScreen(
                     ) {
                         if (current.noStudents) {
                             Text(
-                                text = stringResource(R.string.dashboard_no_students),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                        }
-                        if (current.noArchived) {
-                            Text(
-                                text = stringResource(R.string.student_no_archived),
+                                text = stringResource(R.string.batch_no_students_to_add),
                                 style = MaterialTheme.typography.bodyLarge,
                             )
                         }
@@ -115,10 +96,72 @@ fun StudentListScreen(
                             )
                         }
                         current.rows.forEach { row ->
-                            StudentRowButton(row = row, onOpen = onOpen)
+                            StudentPickRow(row = row, onToggle = { viewModel.onToggle(row.id) })
                         }
                     }
-                    WideButton(stringResource(R.string.dashboard_add_student), onAdd)
+                    if (current.actionError) {
+                        Text(
+                            text = stringResource(R.string.batch_action_error),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    WideButton(
+                        label = stringResource(
+                            if (current.saving) R.string.student_saving else R.string.batch_add_selected,
+                        ),
+                        onClick = viewModel::save,
+                        enabled = !current.saving && current.selectedCount > 0,
+                    )
+                }
+            }
+        }
+    }
+    val prompt = (state as? AddStudentsUiState.Ready)?.capacityPrompt
+    if (prompt != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissCapacity,
+            title = { Text(stringResource(R.string.batch_over_capacity_title)) },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.batch_over_capacity_body,
+                        prompt.capacity,
+                        prompt.enrolled,
+                        prompt.adding,
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            },
+            confirmButton = {
+                DialogButton(stringResource(R.string.batch_over_capacity_confirm), viewModel::confirmCapacity)
+            },
+            dismissButton = {
+                DialogButton(stringResource(R.string.student_cancel), viewModel::dismissCapacity)
+            },
+        )
+    }
+}
+
+@Composable
+private fun StudentPickRow(row: SelectableStudent, onToggle: () -> Unit) {
+    Button(
+        onClick = onToggle,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Checkbox(checked = row.selected, onCheckedChange = { onToggle() })
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = row.name, style = MaterialTheme.typography.bodyLarge)
+                Text(text = row.code, style = MaterialTheme.typography.bodyLarge)
+                if (row.phone != null) {
+                    Text(text = row.phone, style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
@@ -126,30 +169,10 @@ fun StudentListScreen(
 }
 
 @Composable
-private fun StudentRowButton(row: StudentRow, onOpen: (String) -> Unit) {
-    Button(
-        onClick = { onOpen(row.id) },
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 64.dp),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(text = row.name, style = MaterialTheme.typography.bodyLarge)
-            Text(text = row.code, style = MaterialTheme.typography.bodyLarge)
-            if (row.phone != null) {
-                Text(text = row.phone, style = MaterialTheme.typography.bodyLarge)
-            }
-        }
-    }
-}
-
-@Composable
-private fun WideButton(label: String, onClick: () -> Unit) {
+private fun DialogButton(label: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp),
+        modifier = Modifier.heightIn(min = 48.dp),
     ) {
         Text(text = label, style = MaterialTheme.typography.labelLarge)
     }

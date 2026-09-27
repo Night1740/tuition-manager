@@ -1,4 +1,4 @@
-package com.tuitionmanager.feature.students
+package com.tuitionmanager.feature.batches
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -14,30 +14,29 @@ import androidx.compose.ui.test.performTextInput
 import androidx.lifecycle.SavedStateHandle
 import com.tuitionmanager.core.domain.time.ClockLocalCalendar
 import com.tuitionmanager.feature.FeatureRoom
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
-class StudentScreensTest : FeatureRoom() {
+class BatchScreensTest : FeatureRoom() {
     @get:Rule
     val compose = createComposeRule()
 
     @Test
-    fun emptyStudentListSaysThereAreNoStudentsYet() {
+    fun emptyBatchListSaysThereAreNoBatchesYet() {
         createInstitute()
-        val list = StudentListViewModel(institutes, students)
-        list.searchDebounceMillis = 0
+        val list = BatchListViewModel(institutes, batches)
         compose.setContent {
             MaterialTheme {
-                StudentListScreen(onAdd = {}, onOpen = {}, onBack = {}, viewModel = list)
+                BatchListScreen(onCreate = {}, onOpen = {}, onBack = {}, viewModel = list)
             }
         }
         compose.waitUntil(timeoutMillis = 5_000) {
-            compose.onAllNodesWithText("No students yet").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("No batches yet").fetchSemanticsNodes().isNotEmpty()
         }
-        assertPlaced("No students yet")
-        assertPlaced("Add Student")
-        assertPlaced("Search")
+        assertPlaced("No batches yet")
+        assertPlaced("Create Batch")
         assertPlaced("Showing active")
         assertPlaced("Archived")
     }
@@ -45,42 +44,33 @@ class StudentScreensTest : FeatureRoom() {
     @Test
     fun blankFormShowsFieldErrorsAndConfirmsDiscard() {
         createInstitute()
-        val form = StudentFormViewModel(
-            SavedStateHandle(),
-            institutes,
-            students,
-            ClockLocalCalendar(clock),
-            dispatchers,
-        )
+        val form = BatchFormViewModel(SavedStateHandle(), institutes, batches, dispatchers)
         var closed by mutableStateOf(false)
         compose.setContent {
             MaterialTheme {
                 if (closed) {
                     Text("closed")
                 } else {
-                    StudentFormScreen(
-                        onBack = { closed = true },
-                        onSaved = {},
-                        viewModel = form,
-                    )
+                    BatchFormScreen(onBack = { closed = true }, onSaved = {}, viewModel = form)
                 }
             }
         }
         compose.waitUntil(timeoutMillis = 5_000) {
-            compose.onAllNodesWithText("15 Sep 2026").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("Batch name").fetchSemanticsNodes().isNotEmpty()
         }
-        assertPlaced("1")
+        assertPlaced("Start 4:00 PM")
+        assertPlaced("End 5:00 PM")
         click("Save")
-        assertPlaced("Enter the student name.")
-        assertPlaced("Enter a phone number for the student or the guardian.")
+        assertPlaced("Enter a batch name.")
+        assertPlaced("Enter a subject.")
+        assertPlaced("Select at least one day.")
+        assertPlaced("Enter a capacity from 1 to 2000.")
 
-        compose.onNodeWithText("Student name").performTextInput("Ravi Kumar")
+        compose.onNodeWithText("Batch name").performTextInput("Evening")
         click("Back")
         assertPlaced("Discard changes?")
-        assertPlaced("Your edits will be lost.")
         click("Keep editing")
         assertEquals(0, compose.onAllNodesWithText("Discard changes?").fetchSemanticsNodes().size)
-        assertPlaced("Student name")
 
         click("Back")
         click("Discard")
@@ -91,34 +81,44 @@ class StudentScreensTest : FeatureRoom() {
     }
 
     @Test
-    fun archiveDialogExplainsThatBatchesAreLeftBehind() {
+    fun archiveDialogStatesHowManyStudentsLeave() {
         val institute = createInstitute()
+        val batch = createBatch(institute.id)
         val student = createStudent(institute.id)
-        val details = StudentDetailsViewModel(
-            SavedStateHandle(mapOf("studentId" to student.id)),
-            students,
+        kotlinx.coroutines.runBlocking {
+            val assigned = assignments.assign(student.id, batch.id, LocalDate.of(2026, 9, 1))
+            check(assigned is com.tuitionmanager.core.domain.error.DataResult.Success)
+        }
+        val details = BatchDetailsViewModel(
+            SavedStateHandle(mapOf("batchId" to batch.id)),
+            batches,
             assignments,
             ClockLocalCalendar(clock),
             dispatchers,
         )
         compose.setContent {
             MaterialTheme {
-                StudentDetailsScreen(onBack = {}, onEdit = {}, viewModel = details)
+                BatchDetailsScreen(
+                    onBack = {},
+                    onEdit = {},
+                    onAddStudents = {},
+                    viewModel = details,
+                )
             }
         }
         compose.waitUntil(timeoutMillis = 5_000) {
-            compose.onAllNodesWithText("Ravi Kumar").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("Ravi Kumar · A-01").fetchSemanticsNodes().isNotEmpty()
         }
-        assertPlaced("Not in any batch")
-        assertPlaced("9876543210")
+        assertPlaced("1 / 20")
         click("Archive")
-        assertPlaced("This student will be removed from their batches. Restoring them will not add them back.")
+        assertPlaced("1 student will be removed from this batch. Restoring the batch will not add them back.")
         click("Cancel")
         assertEquals(
             0,
-            compose.onAllNodesWithText("Restoring them will not add them back.").fetchSemanticsNodes().size,
+            compose.onAllNodesWithText(
+                "1 student will be removed from this batch. Restoring the batch will not add them back.",
+            ).fetchSemanticsNodes().size,
         )
-        assertPlaced("Archive")
     }
 
     private fun click(text: String) {

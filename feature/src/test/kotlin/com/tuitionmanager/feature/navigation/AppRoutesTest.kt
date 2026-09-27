@@ -15,6 +15,10 @@ class AppRoutesTest {
         roundTrip(EditStudentRoute("student-1"))
         roundTrip(StudentDetailsRoute("student-1"))
         roundTrip(BatchesRoute)
+        roundTrip(AddBatchRoute)
+        roundTrip(EditBatchRoute("batch-1"))
+        roundTrip(BatchDetailsRoute("batch-1"))
+        roundTrip(AddStudentsToBatchRoute("batch-1"))
         roundTrip(AttendanceRoute)
         roundTrip(FeesRoute)
         roundTrip(NoticesRoute)
@@ -24,7 +28,7 @@ class AppRoutesTest {
         roundTrip(ReportsRoute)
         roundTrip(SettingsRoute)
         roundTrip(SmartRoute)
-        assertEquals(10, plannedRoutes.size)
+        assertEquals(9, plannedRoutes.size)
     }
 
     private inline fun <reified T> roundTrip(value: T) {

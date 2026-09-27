@@ -34,6 +34,9 @@ fun StudentDetailsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var confirmArchive by remember { mutableStateOf(false) }
+    var showAdd by remember { mutableStateOf(false) }
+    var moveFrom by remember { mutableStateOf<String?>(null) }
+    var removeTarget by remember { mutableStateOf<StudentBatchLine?>(null) }
     Scaffold { innerPadding ->
         Column(
             modifier = Modifier
@@ -97,7 +100,26 @@ fun StudentDetailsScreen(
                                 text = "${batch.name} · ${batch.subject}",
                                 style = MaterialTheme.typography.bodyLarge,
                             )
+                            if (!current.archived) {
+                                WideButton(
+                                    label = stringResource(R.string.student_move_batch),
+                                    onClick = { moveFrom = batch.batchId },
+                                    enabled = !current.working,
+                                )
+                                WideButton(
+                                    label = stringResource(R.string.student_remove_batch),
+                                    onClick = { removeTarget = batch },
+                                    enabled = !current.working,
+                                )
+                            }
                         }
+                    }
+                    if (!current.archived) {
+                        WideButton(
+                            label = stringResource(R.string.student_add_batch),
+                            onClick = { showAdd = true },
+                            enabled = !current.working,
+                        )
                     }
                     if (current.actionError) {
                         Text(
@@ -151,6 +173,122 @@ fun StudentDetailsScreen(
             },
         )
     }
+    val ready = state as? StudentDetailsUiState.Ready
+    if (showAdd && ready != null) {
+        ChoiceDialog(
+            title = stringResource(R.string.student_add_batch),
+            empty = stringResource(R.string.student_no_batch_available),
+            choices = ready.availableBatches,
+            onDismiss = { showAdd = false },
+            onPick = { batchId ->
+                showAdd = false
+                viewModel.addToBatch(batchId)
+            },
+        )
+    }
+    val movingFrom = moveFrom
+    if (movingFrom != null && ready != null) {
+        ChoiceDialog(
+            title = stringResource(R.string.student_move_batch),
+            empty = stringResource(R.string.student_no_batch_available),
+            choices = ready.availableBatches,
+            onDismiss = { moveFrom = null },
+            onPick = { batchId ->
+                moveFrom = null
+                viewModel.move(movingFrom, batchId)
+            },
+        )
+    }
+    val removing = removeTarget
+    if (removing != null) {
+        AlertDialog(
+            onDismissRequest = { removeTarget = null },
+            title = { Text(stringResource(R.string.student_remove_batch)) },
+            text = {
+                Text(
+                    text = stringResource(R.string.student_remove_batch_body, removing.name),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            },
+            confirmButton = {
+                DialogButton(stringResource(R.string.student_remove_confirm)) {
+                    removeTarget = null
+                    viewModel.remove(removing.assignmentId)
+                }
+            },
+            dismissButton = {
+                DialogButton(stringResource(R.string.student_cancel)) {
+                    removeTarget = null
+                }
+            },
+        )
+    }
+    val prompt = ready?.capacityPrompt
+    if (prompt != null) {
+        CapacityDialog(
+            enrolled = prompt.enrolled,
+            adding = prompt.adding,
+            capacity = prompt.capacity,
+            onConfirm = viewModel::confirmCapacity,
+            onDismiss = viewModel::dismissCapacity,
+        )
+    }
+}
+
+@Composable
+private fun ChoiceDialog(
+    title: String,
+    empty: String,
+    choices: List<BatchChoice>,
+    onDismiss: () -> Unit,
+    onPick: (String) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (choices.isEmpty()) {
+                    Text(text = empty, style = MaterialTheme.typography.bodyLarge)
+                }
+                choices.forEach { choice ->
+                    DialogButton("${choice.name} · ${choice.subject}") {
+                        onPick(choice.id)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            DialogButton(stringResource(R.string.student_cancel), onDismiss)
+        },
+    )
+}
+
+@Composable
+private fun CapacityDialog(
+    enrolled: Int,
+    adding: Int,
+    capacity: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.batch_over_capacity_title)) },
+        text = {
+            Text(
+                text = stringResource(R.string.batch_over_capacity_body, capacity, enrolled, adding),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        },
+        confirmButton = {
+            DialogButton(stringResource(R.string.batch_over_capacity_confirm), onConfirm)
+        },
+        dismissButton = {
+            DialogButton(stringResource(R.string.student_cancel), onDismiss)
+        },
+    )
 }
 
 @Composable

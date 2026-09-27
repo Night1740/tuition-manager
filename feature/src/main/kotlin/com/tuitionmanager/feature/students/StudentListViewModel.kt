@@ -36,10 +36,11 @@ sealed interface StudentListUiState {
 
     data class Ready(
         val query: String,
-        val showArchived: Boolean,
+        val archivedOnly: Boolean,
         val rows: List<StudentRow>,
     ) : StudentListUiState {
-        val noStudents: Boolean get() = rows.isEmpty() && query.isBlank()
+        val noStudents: Boolean get() = rows.isEmpty() && query.isBlank() && !archivedOnly
+        val noArchived: Boolean get() = rows.isEmpty() && query.isBlank() && archivedOnly
         val noResults: Boolean get() = rows.isEmpty() && query.isNotBlank()
     }
 
@@ -53,7 +54,7 @@ class StudentListViewModel @Inject constructor(
     private val students: StudentRepository,
 ) : ViewModel() {
     private val query = MutableStateFlow("")
-    private val showArchived = MutableStateFlow(false)
+    private val archivedOnly = MutableStateFlow(false)
     private val attempts = MutableStateFlow(0)
 
     /** Tests set this before collection. Production search waits briefly so each keystroke does not query. */
@@ -67,7 +68,7 @@ class StudentListViewModel @Inject constructor(
             val wait = searchDebounceMillis
             if (wait == 0L || text.isBlank()) 0L else wait
         },
-        showArchived,
+        archivedOnly,
         attempts,
     ) { text, archived, _ -> text to archived }
         .flatMapLatest { (text, archived) ->
@@ -95,8 +96,8 @@ class StudentListViewModel @Inject constructor(
         query.value = value
     }
 
-    fun onShowArchived(show: Boolean) {
-        showArchived.value = show
+    fun onArchivedOnly(archived: Boolean) {
+        archivedOnly.value = archived
     }
 
     fun retry() {
@@ -106,13 +107,13 @@ class StudentListViewModel @Inject constructor(
 
 private fun Flow<DataResult<List<Student>>>.mapRows(
     query: String,
-    showArchived: Boolean,
+    archivedOnly: Boolean,
 ): Flow<StudentListUiState> = map { result ->
     when (result) {
         is DataResult.Failure -> StudentListUiState.Error
         is DataResult.Success -> StudentListUiState.Ready(
             query = query.trim(),
-            showArchived = showArchived,
+            archivedOnly = archivedOnly,
             rows = result.value.map { student ->
                 StudentRow(
                     id = student.id,

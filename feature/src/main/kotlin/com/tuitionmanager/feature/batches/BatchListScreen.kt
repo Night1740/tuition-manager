@@ -1,4 +1,4 @@
-package com.tuitionmanager.feature.students
+package com.tuitionmanager.feature.batches
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,7 +11,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,14 +23,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tuitionmanager.feature.R
 
 @Composable
-fun StudentListScreen(
-    onAdd: () -> Unit,
+fun BatchListScreen(
+    onCreate: () -> Unit,
     onOpen: (String) -> Unit,
     onBack: () -> Unit,
-    viewModel: StudentListViewModel = hiltViewModel(),
+    viewModel: BatchListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val query by viewModel.queryText.collectAsStateWithLifecycle()
     Scaffold { innerPadding ->
         Column(
             modifier = Modifier
@@ -42,41 +40,29 @@ fun StudentListScreen(
         ) {
             WideButton(stringResource(R.string.nav_back), onBack)
             Text(
-                text = stringResource(R.string.nav_students),
+                text = stringResource(R.string.nav_batches),
                 style = MaterialTheme.typography.headlineMedium,
             )
             when (val current = state) {
-                StudentListUiState.Loading -> {
+                BatchListUiState.Loading -> {
                     CircularProgressIndicator(modifier = Modifier.heightIn(min = 48.dp))
                     Text(
                         text = stringResource(R.string.start_loading),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
-                StudentListUiState.Error -> {
+                BatchListUiState.Error -> {
                     Text(
-                        text = stringResource(R.string.student_list_error),
+                        text = stringResource(R.string.batch_list_error),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.error,
                     )
                     WideButton(stringResource(R.string.start_retry), viewModel::retry)
                 }
-                is StudentListUiState.Ready -> {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = viewModel::onQuery,
-                        label = { Text(stringResource(R.string.student_search)) },
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                is BatchListUiState.Ready -> {
                     WideButton(
                         label = stringResource(
-                            if (current.archivedOnly) {
-                                R.string.list_filter_active
-                            } else {
-                                R.string.list_showing_active
-                            },
+                            if (current.archivedOnly) R.string.list_filter_active else R.string.list_showing_active,
                         ),
                         onClick = { viewModel.onArchivedOnly(false) },
                     )
@@ -96,29 +82,23 @@ fun StudentListScreen(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        if (current.noStudents) {
+                        if (current.noBatches) {
                             Text(
-                                text = stringResource(R.string.dashboard_no_students),
+                                text = stringResource(R.string.batch_empty),
                                 style = MaterialTheme.typography.bodyLarge,
                             )
                         }
                         if (current.noArchived) {
                             Text(
-                                text = stringResource(R.string.student_no_archived),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                        }
-                        if (current.noResults) {
-                            Text(
-                                text = stringResource(R.string.student_no_results),
+                                text = stringResource(R.string.batch_no_archived),
                                 style = MaterialTheme.typography.bodyLarge,
                             )
                         }
                         current.rows.forEach { row ->
-                            StudentRowButton(row = row, onOpen = onOpen)
+                            BatchRowButton(row = row, onOpen = onOpen)
                         }
                     }
-                    WideButton(stringResource(R.string.dashboard_add_student), onAdd)
+                    WideButton(stringResource(R.string.batch_create), onCreate)
                 }
             }
         }
@@ -126,7 +106,7 @@ fun StudentListScreen(
 }
 
 @Composable
-private fun StudentRowButton(row: StudentRow, onOpen: (String) -> Unit) {
+private fun BatchRowButton(row: BatchRow, onOpen: (String) -> Unit) {
     Button(
         onClick = { onOpen(row.id) },
         modifier = Modifier
@@ -135,18 +115,18 @@ private fun StudentRowButton(row: StudentRow, onOpen: (String) -> Unit) {
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(text = row.name, style = MaterialTheme.typography.bodyLarge)
-            Text(text = row.code, style = MaterialTheme.typography.bodyLarge)
-            if (row.phone != null) {
-                Text(text = row.phone, style = MaterialTheme.typography.bodyLarge)
-            }
+            Text(text = row.subject, style = MaterialTheme.typography.bodyLarge)
+            Text(text = row.schedule, style = MaterialTheme.typography.bodyLarge)
+            Text(text = row.occupancy, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }
 
 @Composable
-private fun WideButton(label: String, onClick: () -> Unit) {
+internal fun WideButton(label: String, onClick: () -> Unit, enabled: Boolean = true) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp),

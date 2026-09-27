@@ -1,6 +1,7 @@
 package com.tuitionmanager.core.data.repository
 
 import com.tuitionmanager.core.data.local.TuitionDatabase
+import com.tuitionmanager.core.data.local.dao.MembershipWrite
 import com.tuitionmanager.core.data.local.entity.StudentBatchEntity
 import com.tuitionmanager.core.data.local.entity.activeSlotOf
 import com.tuitionmanager.core.data.mapper.toDomain
@@ -12,6 +13,8 @@ import com.tuitionmanager.core.domain.error.EntityKind
 import com.tuitionmanager.core.domain.error.InvalidCode
 import com.tuitionmanager.core.domain.model.Batch
 import com.tuitionmanager.core.domain.model.Enrollment
+import com.tuitionmanager.core.domain.model.OpenAssignment
+import com.tuitionmanager.core.domain.model.Student
 import com.tuitionmanager.core.domain.model.StudentBatch
 import com.tuitionmanager.core.domain.repository.StudentBatchRepository
 import com.tuitionmanager.core.id.IdGenerator
@@ -64,44 +67,92 @@ class RoomStudentBatchRepository @Inject constructor(
             .storageFailures("observe_student_batch_history")
             .flowOn(dispatchers.io)
 
-    override fun observeOpenBatches(studentId: String): Flow<DataResult<List<Batch>>> =
-        database.batchDao().observeOpenForStudent(studentId)
-            .map { rows -> DataResult.Success(rows.map { it.toDomain() }) }
+    override fun observeOpenAssignments(studentId: String): Flow<DataResult<List<OpenAssignment>>> =
+        database.batchDao().observeOpenAssignments(studentId)
+            .map { rows ->
+                DataResult.Success(
+                    rows.map { row ->
+                        OpenAssignment(assignmentId = row.assignmentId, batch = row.batch.toDomain())
+                    },
+                )
+            }
             .storageFailures("observe_open_batches")
             .flowOn(dispatchers.io)
+
+    override fun observeAvailableBatches(studentId: String): Flow<DataResult<List<Batch>>> =
+        database.batchDao().observeAvailableForStudent(studentId)
+            .map { rows -> DataResult.Success(rows.map { it.toDomain() }) }
+            .storageFailures("observe_available_batches")
+            .flowOn(dispatchers.io)
+
+    override fun observeAssignableStudents(
+        batchId: String,
+        query: String,
+    ): Flow<DataResult<List<Student>>> {
+        val trimmed = query.trim()
+        val digits = trimmed.filter { it.isDigit() }
+        return database.studentDao().observeAssignable(
+            batchId = batchId,
+            pattern = if (trimmed.isEmpty()) "" else toContainsLikePattern(trimmed),
+            digitPattern = if (digits.isEmpty()) "" else toContainsLikePattern(digits),
+        )
+            .map { rows -> DataResult.Success(rows.map { it.toDomain() }) }
+            .storageFailures("observe_assignable_students")
+            .flowOn(dispatchers.io)
+    }
 
     override suspend fun assign(
         studentId: String,
         batchId: String,
         startedOn: LocalDate,
-    ): DataResult<StudentBatch> = runData("assign_student_batch") {
+        allowOverCapacity: Boolean,
+    ): DataResult<StudentBatch> {
+        val many = assignMany(listOf(studentId), batchId, startedOn, allowOverCapacity)
+        return when (many) {
+            is DataResult.Success -> DataResult.Success(many.value.single())
+            is DataResult.Failure -> many
+        }
+    }
+
+    override suspend fun assignMany(
+        studentIds: List<String>,
+        batchId: String,
+        startedOn: LocalDate,
+        allowOverCapacity: Boolean,
+    ): DataResult<List<StudentBatch>> = runData("assign_student_batch") {
+        val distinctIds = studentIds.distinct()
+        if (distinctIds.isEmpty()) return@runData DataResult.Success(emptyList())
         withContext(dispatchers.io) {
-            val student = database.studentDao().getById(studentId)
-                ?: return@withContext DataResult.Failure(DataError.NotFound(EntityKind.Student))
-            if (student.archivedAt != null) {
-                return@withContext DataResult.Failure(DataError.Invalid(InvalidCode.StudentArchived))
-            }
             val batch = database.batchDao().getById(batchId)
                 ?: return@withContext DataResult.Failure(DataError.NotFound(EntityKind.Batch))
             if (batch.archivedAt != null) {
                 return@withContext DataResult.Failure(DataError.Invalid(InvalidCode.BatchArchived))
             }
-            if (student.instituteId != batch.instituteId) {
+            val found = database.studentDao().getByIds(distinctIds)
+            if (found.size != distinctIds.size) {
+                return@withContext DataResult.Failure(DataError.NotFound(EntityKind.Student))
+            }
+            if (found.any { it.archivedAt != null }) {
+                return@withContext DataResult.Failure(DataError.Invalid(InvalidCode.StudentArchived))
+            }
+            if (found.any { it.instituteId != batch.instituteId }) {
                 return@withContext DataResult.Failure(DataError.Invalid(InvalidCode.CrossInstitute))
             }
-            val entity = StudentBatchEntity(
-                id = ids.newId(),
-                studentId = studentId,
-                batchId = batchId,
-                startedOn = startedOn,
-                endedOn = null,
-                activeSlot = activeSlotOf(studentId, batchId),
-                createdAt = clock.instant(),
-            )
-            when (dao.insertActive(entity, batch.capacity)) {
-                1 -> DataResult.Success(entity.toDomain())
-                -1 -> DataResult.Failure(DataError.Conflict(ConflictCode.BatchFull))
-                else -> DataResult.Failure(DataError.Storage("assign_student_batch"))
+            val createdAt = clock.instant()
+            val entities = distinctIds.map { studentId ->
+                StudentBatchEntity(
+                    id = ids.newId(),
+                    studentId = studentId,
+                    batchId = batchId,
+                    startedOn = startedOn,
+                    endedOn = null,
+                    activeSlot = activeSlotOf(studentId, batchId),
+                    createdAt = createdAt,
+                )
+            }
+            when (val outcome = dao.insertMany(entities, batch.capacity, allowOverCapacity)) {
+                is MembershipWrite.Written -> DataResult.Success(entities.map { it.toDomain() })
+                else -> outcome.toResult()
             }
         }
     }
@@ -129,6 +180,7 @@ class RoomStudentBatchRepository @Inject constructor(
         fromBatchId: String,
         toBatchId: String,
         on: LocalDate,
+        allowOverCapacity: Boolean,
     ): DataResult<StudentBatch> = runData("move_student_batch") {
         if (fromBatchId == toBatchId) {
             return@runData DataResult.Failure(DataError.Invalid(InvalidCode.SameBatch))
@@ -164,12 +216,29 @@ class RoomStudentBatchRepository @Inject constructor(
                 activeSlot = activeSlotOf(studentId, toBatchId),
                 createdAt = clock.instant(),
             )
-            when (dao.move(active.id, on, created, destination.capacity)) {
-                1 -> DataResult.Success(created.toDomain())
-                -1 -> DataResult.Failure(DataError.Conflict(ConflictCode.BatchFull))
-                0 -> DataResult.Failure(DataError.NotFound(EntityKind.StudentBatch))
-                else -> DataResult.Failure(DataError.Storage("move_student_batch"))
+            when (
+                val outcome = dao.move(
+                    fromId = active.id,
+                    endedOn = on,
+                    created = created,
+                    capacity = destination.capacity,
+                    allowOverCapacity = allowOverCapacity,
+                )
+            ) {
+                is MembershipWrite.Written -> DataResult.Success(created.toDomain())
+                else -> outcome.toResult()
             }
         }
     }
+}
+
+private fun MembershipWrite.toResult(): DataResult<Nothing> = when (this) {
+    is MembershipWrite.OverCapacity -> DataResult.Failure(
+        DataError.OverCapacity(enrolled = enrolled, adding = adding, capacity = capacity),
+    )
+    MembershipWrite.Duplicate -> DataResult.Failure(
+        DataError.Conflict(ConflictCode.DuplicateActiveAssignment),
+    )
+    MembershipWrite.Missing -> DataResult.Failure(DataError.NotFound(EntityKind.StudentBatch))
+    is MembershipWrite.Written -> DataResult.Failure(DataError.Storage("assign_student_batch"))
 }

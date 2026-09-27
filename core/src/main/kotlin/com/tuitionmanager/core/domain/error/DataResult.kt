@@ -15,6 +15,17 @@ sealed interface DataError {
 
     /** [operation] is a stable token. It never includes field values. */
     data class Storage(val operation: String) : DataError
+
+    /**
+     * Adding [adding] students would put a batch past [capacity].
+     * [enrolled] is the current count of active students with an open assignment.
+     * Nothing was written. A later call may allow the over-enrollment.
+     */
+    data class OverCapacity(
+        val enrolled: Int,
+        val adding: Int,
+        val capacity: Int,
+    ) : DataError
 }
 
 enum class InvalidCode {
@@ -35,7 +46,11 @@ enum class InvalidCode {
     StudentArchived,
     BatchArchived,
     BlankSubject,
+    SubjectTooLong,
     BlankBatchName,
+    NoDaysSelected,
+    EndNotAfterStart,
+    RoomTooLong,
     CrossInstitute,
     SameBatch,
 }
