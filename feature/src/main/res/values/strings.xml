@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="foundation_title">Tuition Manager</string>
+    <string name="foundation_loading">Opening local data…</string>
+    <string name="foundation_ready">Local database is ready.</string>
+    <string name="foundation_error">Could not open local data.</string>
+    <string name="foundation_retry">Try again</string>
+</resources>
