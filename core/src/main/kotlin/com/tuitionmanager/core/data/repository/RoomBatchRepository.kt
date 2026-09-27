@@ -76,6 +76,12 @@ class RoomBatchRepository @Inject constructor(
         }
     }
 
+    override fun observeActiveCount(instituteId: String): Flow<DataResult<Int>> =
+        dao.observeActiveCount(instituteId)
+            .map { count -> DataResult.Success(count) }
+            .storageFailures("count_batches")
+            .flowOn(dispatchers.io)
+
     override suspend fun get(id: String): DataResult<Batch> = runData("get_batch") {
         withContext(dispatchers.io) {
             val entity = dao.getById(id)

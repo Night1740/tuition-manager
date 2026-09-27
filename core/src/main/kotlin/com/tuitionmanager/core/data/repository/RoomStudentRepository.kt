@@ -92,6 +92,12 @@ class RoomStudentRepository @Inject constructor(
         }
     }
 
+    override fun observeActiveCount(instituteId: String): Flow<DataResult<Int>> =
+        dao.observeActiveCount(instituteId)
+            .map { count -> DataResult.Success(count) }
+            .storageFailures("count_students")
+            .flowOn(dispatchers.io)
+
     override suspend fun get(id: String): DataResult<Student> = runData("get_student") {
         withContext(dispatchers.io) {
             val entity = dao.getById(id)

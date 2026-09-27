@@ -52,14 +52,14 @@ class DashboardViewModel @Inject constructor(
                             flowOf(DashboardUiState.Error)
                         } else {
                             combine(
-                                students.observeActive(institute.id),
-                                batches.observeActive(institute.id),
+                                students.observeActiveCount(institute.id),
+                                batches.observeActiveCount(institute.id),
                             ) { studentResult, batchResult ->
                                 if (studentResult is DataResult.Success && batchResult is DataResult.Success) {
                                     DashboardUiState.Ready(
                                         instituteName = institute.name,
-                                        studentCount = studentResult.value.size,
-                                        batchCount = batchResult.value.size,
+                                        studentCount = studentResult.value,
+                                        batchCount = batchResult.value,
                                     )
                                 } else {
                                     DashboardUiState.Error

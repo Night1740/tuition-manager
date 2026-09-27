@@ -1,5 +1,6 @@
 package com.tuitionmanager.core.data
 
+import androidx.sqlite.SQLiteException
 import com.tuitionmanager.core.domain.error.ConflictCode
 import com.tuitionmanager.core.domain.error.DataError
 import com.tuitionmanager.core.domain.error.DataResult
@@ -14,6 +15,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class InstituteStudentRepositoryTest : RoomFixture() {
@@ -60,6 +62,7 @@ class InstituteStudentRepositoryTest : RoomFixture() {
         val archived = createStudent(institute.id, name = "Gone", code = "G1")
         students.archive(archived.id, LocalDate.of(2026, 9, 15)).success()
         assertEquals(listOf(kept.id), students.observeActive(institute.id).awaitSuccess().map { it.id })
+        assertEquals(1, students.observeActiveCount(institute.id).awaitSuccess())
         assertEquals(
             setOf(kept.id, archived.id),
             students.observe(institute.id, includeArchived = true).awaitSuccess().map { it.id }.toSet(),
@@ -68,6 +71,7 @@ class InstituteStudentRepositoryTest : RoomFixture() {
         students.restore(archived.id).success()
         assertFalse(students.get(archived.id).success().isArchived)
         assertEquals(2, students.countActive(institute.id).success())
+        assertEquals(2, students.observeActiveCount(institute.id).awaitSuccess())
     }
 
     @Test
@@ -154,6 +158,20 @@ class InstituteStudentRepositoryTest : RoomFixture() {
             listOf("A_B"),
             students.observeList(institute.id, archivedOnly = true, query = "A_B").awaitSuccess().map { it.name },
         )
+    }
+
+    @Test
+    fun duplicateStudentIdIsRejectedByTheDatabase() = runBlocking {
+        val institute = createInstitute()
+        val student = createStudent(institute.id, code = "1")
+        val row = checkNotNull(db.studentDao().getById(student.id))
+        try {
+            db.studentDao().insert(row)
+            fail("A second row with the same id should be rejected")
+        } catch (error: SQLiteException) {
+            assertTrue(error.message.orEmpty().contains("UNIQUE"))
+        }
+        assertEquals(listOf(student.id), students.observeActive(institute.id).awaitSuccess().map { it.id })
     }
 
     @Test

@@ -59,7 +59,6 @@ enum class ConflictCode {
     InstituteAlreadyExists,
     DuplicateStudentCode,
     DuplicateActiveAssignment,
-    BatchFull,
     Constraint,
 }
 

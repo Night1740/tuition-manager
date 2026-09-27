@@ -38,6 +38,12 @@ android {
     }
 }
 
+androidComponents {
+    beforeVariants { builder ->
+        builder.enableAndroidTest = false
+    }
+}
+
 dependencies {
     implementation(project(":core"))
 

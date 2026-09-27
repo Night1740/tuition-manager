@@ -16,6 +16,33 @@ class ArchitectureConstraintsTest {
     }
 
     @Test
+    fun appLogDoesNotRecordExceptionTextOrFieldValues() {
+        val source = file("core/src/main/kotlin/com/tuitionmanager/core/logging/AppLog.kt").readText()
+        val call = source.substringAfter("fun storageFailure")
+        assertTrue(call.contains("error.javaClass.name"))
+        assertFalse(call.contains("error.message"))
+        assertFalse(call.contains(".message"))
+        assertFalse(call.contains("phone"))
+        assertFalse(call.contains("amount"))
+    }
+
+    @Test
+    fun featureDoesNotReimplementPhoneOrCapacityRules() {
+        val offenders = file("feature/src/main").walkTopDown()
+            .filter { it.extension == "kt" }
+            .filter { file ->
+                val text = file.readText()
+                text.contains("nationalPhone") ||
+                    text.contains("MIN_BATCH_CAPACITY") ||
+                    text.contains("MAX_BATCH_CAPACITY") ||
+                    text.contains("removePrefix(\"+91\")")
+            }
+            .map { it.path }
+            .toList()
+        assertTrue(offenders.toString(), offenders.isEmpty())
+    }
+
+    @Test
     fun databaseDoesNotUseDestructiveMigration() {
         val database = file("core/src/main/kotlin/com/tuitionmanager/core/data/local/TuitionDatabase.kt").readText()
         assertFalse(database.contains(".fallbackToDestructiveMigration"))

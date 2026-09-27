@@ -32,6 +32,12 @@ android {
     }
 }
 
+androidComponents {
+    beforeVariants { builder ->
+        builder.enableAndroidTest = false
+    }
+}
+
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
     arg("room.generateKotlin", "true")

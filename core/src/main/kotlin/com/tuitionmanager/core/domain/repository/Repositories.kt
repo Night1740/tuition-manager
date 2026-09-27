@@ -46,6 +46,9 @@ interface StudentRepository {
 
     suspend fun countActive(instituteId: String): DataResult<Int>
 
+    /** Active students only, as a count. Does not load student rows. */
+    fun observeActiveCount(instituteId: String): Flow<DataResult<Int>>
+
     suspend fun get(id: String): DataResult<Student>
 
     suspend fun create(draft: NewStudent): DataResult<Student>
@@ -76,6 +79,9 @@ interface BatchRepository {
     fun observeOne(id: String): Flow<DataResult<Batch>>
 
     suspend fun countActive(instituteId: String): DataResult<Int>
+
+    /** Active batches only, as a count. Does not load batch rows. */
+    fun observeActiveCount(instituteId: String): Flow<DataResult<Int>>
 
     suspend fun get(id: String): DataResult<Batch>
 

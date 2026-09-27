@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="start_loading">Opening your class…</string>
     <string name="start_error">Could not open local data.</string>
     <string name="start_retry">Try again</string>
@@ -123,7 +123,8 @@
     <string name="batch_error_room">Room is too long.</string>
     <string name="batch_error_capacity">Enter a capacity from 1 to 2000.</string>
     <string name="batch_over_capacity_title">Over capacity</string>
-    <string name="batch_over_capacity_body">This batch can take %1$d students and already has %2$d. Adding %3$d goes over that limit.</string>
+    <!-- Three independent counts; a single plurals resource cannot cover all of them. -->
+    <string name="batch_over_capacity_body" tools:ignore="PluralsCandidate">This batch can take %1$d students and already has %2$d. Adding %3$d goes over that limit.</string>
     <string name="batch_over_capacity_confirm">Continue anyway</string>
     <plurals name="batch_archive_body">
         <item quantity="one">%d student will be removed from this batch. Restoring the batch will not add them back.</item>

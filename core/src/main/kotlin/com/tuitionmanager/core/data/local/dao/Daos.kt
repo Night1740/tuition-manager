@@ -118,6 +118,11 @@ abstract class StudentDao {
     )
     abstract suspend fun countActive(instituteId: String): Int
 
+    @Query(
+        "SELECT COUNT(*) FROM students WHERE institute_id = :instituteId AND archived_at IS NULL",
+    )
+    abstract fun observeActiveCount(instituteId: String): Flow<Int>
+
     @Query("SELECT * FROM students WHERE id = :id")
     abstract suspend fun getById(id: String): StudentEntity?
 
@@ -205,6 +210,11 @@ abstract class BatchDao {
         "SELECT COUNT(*) FROM batches WHERE institute_id = :instituteId AND archived_at IS NULL",
     )
     abstract suspend fun countActive(instituteId: String): Int
+
+    @Query(
+        "SELECT COUNT(*) FROM batches WHERE institute_id = :instituteId AND archived_at IS NULL",
+    )
+    abstract fun observeActiveCount(instituteId: String): Flow<Int>
 
     @Query("SELECT * FROM batches WHERE id = :id")
     abstract suspend fun getById(id: String): BatchEntity?
