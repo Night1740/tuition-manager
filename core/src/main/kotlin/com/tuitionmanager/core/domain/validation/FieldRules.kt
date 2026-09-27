@@ -1,5 +1,7 @@
 package com.tuitionmanager.core.domain.validation
 
+import com.tuitionmanager.core.domain.error.InvalidCode
+
 internal const val MAX_NAME_LENGTH = 120
 internal const val MAX_STUDENT_CODE_LENGTH = 32
 internal const val MAX_NOTES_LENGTH = 2_000
@@ -83,3 +85,88 @@ internal fun nationalPhoneOrNull(raw: String?): String? {
 
 internal fun isValidClockMinutes(startMinute: Int, endMinute: Int): Boolean =
     startMinute in 0..1_439 && endMinute in 0..1_439 && endMinute > startMinute
+
+data class InstituteDraft(
+    val name: String,
+    val ownerName: String,
+    val phone: String?,
+    val address: String?,
+)
+
+sealed interface InstituteValidation {
+    data class Accepted(val draft: InstituteDraft) : InstituteValidation
+
+    data class Rejected(val code: InvalidCode) : InstituteValidation
+}
+
+/** Shared institute-field rule used by onboarding and the institute repository. */
+fun validateInstituteInput(
+    name: String,
+    ownerName: String,
+    phone: String?,
+    address: String?,
+): InstituteValidation {
+    val normalizedName = normalizeRequiredName(name)
+        ?: return InstituteValidation.Rejected(InvalidCode.BlankName)
+    val normalizedOwner = normalizeRequiredName(ownerName)
+        ?: return InstituteValidation.Rejected(InvalidCode.BlankOwnerName)
+    val parsedPhone = parsePhone(phone, required = false)
+    if (parsedPhone is PhoneParse.Invalid) {
+        return InstituteValidation.Rejected(InvalidCode.InvalidPhone)
+    }
+    val parsedAddress = parseOptionalText(address, MAX_ADDRESS_LENGTH)
+    if (parsedAddress is OptionalText.TooLong) {
+        return InstituteValidation.Rejected(InvalidCode.AddressTooLong)
+    }
+    return InstituteValidation.Accepted(
+        InstituteDraft(
+            name = normalizedName,
+            ownerName = normalizedOwner,
+            phone = (parsedPhone as PhoneParse.Value).national,
+            address = (parsedAddress as OptionalText.Value).text,
+        ),
+    )
+}
+
+data class StudentContacts(
+    val guardianName: String?,
+    val guardianPhone: String?,
+    val studentPhone: String?,
+)
+
+sealed interface ContactValidation {
+    data class Accepted(val contacts: StudentContacts) : ContactValidation
+
+    data class Rejected(val code: InvalidCode) : ContactValidation
+}
+
+/**
+ * A student needs at least one contact number: guardian phone or student phone.
+ * Either number may be omitted. A number that is present must be a 10-digit national number.
+ * Guardian name is optional.
+ */
+fun validateStudentContacts(
+    guardianName: String?,
+    guardianPhone: String?,
+    studentPhone: String?,
+): ContactValidation {
+    val name = when (val parsed = parseOptionalText(guardianName, MAX_NAME_LENGTH)) {
+        OptionalText.TooLong ->
+            return ContactValidation.Rejected(InvalidCode.NameTooLong)
+        is OptionalText.Value -> parsed.text
+    }
+    val guardian = when (val parsed = parsePhone(guardianPhone, required = false)) {
+        PhoneParse.Invalid ->
+            return ContactValidation.Rejected(InvalidCode.InvalidPhone)
+        is PhoneParse.Value -> parsed.national
+    }
+    val student = when (val parsed = parsePhone(studentPhone, required = false)) {
+        PhoneParse.Invalid ->
+            return ContactValidation.Rejected(InvalidCode.InvalidPhone)
+        is PhoneParse.Value -> parsed.national
+    }
+    if (guardian == null && student == null) {
+        return ContactValidation.Rejected(InvalidCode.MissingContactPhone)
+    }
+    return ContactValidation.Accepted(StudentContacts(name, guardian, student))
+}

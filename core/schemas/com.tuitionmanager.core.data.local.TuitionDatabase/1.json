@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "218b497c1738552f962a54ad2f9feda2",
+    "identityHash": "73a43e8b4ed3e9e64b7bffbd55166948",
     "entities": [
       {
         "tableName": "institutes",
@@ -58,7 +58,7 @@
       },
       {
         "tableName": "students",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `institute_id` TEXT NOT NULL, `name` TEXT NOT NULL, `student_code` TEXT NOT NULL COLLATE NOCASE, `guardian_name` TEXT NOT NULL, `guardian_phone` TEXT NOT NULL, `phone` TEXT, `photo_uri` TEXT, `admission_date` INTEGER NOT NULL, `notes` TEXT, `archived_at` INTEGER, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`institute_id`) REFERENCES `institutes`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `institute_id` TEXT NOT NULL, `name` TEXT NOT NULL, `student_code` TEXT NOT NULL COLLATE NOCASE, `guardian_name` TEXT, `guardian_phone` TEXT, `phone` TEXT, `photo_uri` TEXT, `admission_date` INTEGER NOT NULL, `notes` TEXT, `archived_at` INTEGER, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`institute_id`) REFERENCES `institutes`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
         "fields": [
           {
             "fieldPath": "id",
@@ -87,14 +87,12 @@
           {
             "fieldPath": "guardianName",
             "columnName": "guardian_name",
-            "affinity": "TEXT",
-            "notNull": true
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "guardianPhone",
             "columnName": "guardian_phone",
-            "affinity": "TEXT",
-            "notNull": true
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "phone",
@@ -892,7 +890,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '218b497c1738552f962a54ad2f9feda2')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '73a43e8b4ed3e9e64b7bffbd55166948')"
     ]
   }
 }

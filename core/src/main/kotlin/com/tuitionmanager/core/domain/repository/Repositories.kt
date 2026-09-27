@@ -35,7 +35,12 @@ interface StudentRepository {
 
     suspend fun update(student: Student): DataResult<Student>
 
-    suspend fun archive(id: String): DataResult<Student>
+    /**
+     * Soft-archives the student and ends every open batch assignment on [on].
+     * [on] is an exclusive end: the student is not a member of those batches on that date.
+     * Restoring the student does not reopen the assignments.
+     */
+    suspend fun archive(id: String, on: LocalDate): DataResult<Student>
 
     suspend fun restore(id: String): DataResult<Student>
 }

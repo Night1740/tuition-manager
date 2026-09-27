@@ -11,16 +11,17 @@ import com.tuitionmanager.core.domain.error.InvalidCode
 import com.tuitionmanager.core.domain.model.NewStudent
 import com.tuitionmanager.core.domain.model.Student
 import com.tuitionmanager.core.domain.repository.StudentRepository
+import com.tuitionmanager.core.domain.validation.ContactValidation
 import com.tuitionmanager.core.domain.validation.MAX_NOTES_LENGTH
 import com.tuitionmanager.core.domain.validation.MAX_PHOTO_URI_LENGTH
 import com.tuitionmanager.core.domain.validation.OptionalText
-import com.tuitionmanager.core.domain.validation.PhoneParse
 import com.tuitionmanager.core.domain.validation.normalizeRequiredName
 import com.tuitionmanager.core.domain.validation.normalizeStudentCode
 import com.tuitionmanager.core.domain.validation.parseOptionalText
-import com.tuitionmanager.core.domain.validation.parsePhone
+import com.tuitionmanager.core.domain.validation.validateStudentContacts
 import com.tuitionmanager.core.id.IdGenerator
 import java.time.Clock
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -140,10 +141,10 @@ class RoomStudentRepository @Inject constructor(
         }
     }
 
-    override suspend fun archive(id: String): DataResult<Student> = runData("archive_student") {
+    override suspend fun archive(id: String, on: LocalDate): DataResult<Student> = runData("archive_student") {
         withContext(dispatchers.io) {
             val now = clock.instant()
-            dao.archive(id, now, now)
+            dao.archiveAndCloseAssignments(id, now, now, on)
             val entity = dao.getById(id)
                 ?: return@withContext DataResult.Failure(DataError.NotFound(EntityKind.Student))
             DataResult.Success(entity.toDomain())
@@ -169,8 +170,8 @@ private sealed interface ParsedStudent
 private data class StudentFields(
     val name: String,
     val studentCode: String,
-    val guardianName: String,
-    val guardianPhone: String,
+    val guardianName: String?,
+    val guardianPhone: String?,
     val phone: String?,
     val photoUri: String?,
     val notes: String?,
@@ -181,8 +182,8 @@ private data class FieldError(val code: InvalidCode) : ParsedStudent
 private fun studentFields(
     name: String,
     studentCode: String,
-    guardianName: String,
-    guardianPhone: String,
+    guardianName: String?,
+    guardianPhone: String?,
     phone: String?,
     photoUri: String?,
     notes: String?,
@@ -192,11 +193,10 @@ private fun studentFields(
         "" -> return FieldError(InvalidCode.BlankStudentCode)
         else -> normalizeStudentCode(trimmed) ?: return FieldError(InvalidCode.InvalidStudentCode)
     }
-    val guardian = normalizeRequiredName(guardianName) ?: return FieldError(InvalidCode.BlankGuardianName)
-    val guardianPhoneParsed = parsePhone(guardianPhone, required = true)
-    if (guardianPhoneParsed is PhoneParse.Invalid) return FieldError(InvalidCode.InvalidPhone)
-    val studentPhone = parsePhone(phone, required = false)
-    if (studentPhone is PhoneParse.Invalid) return FieldError(InvalidCode.InvalidPhone)
+    val contacts = when (val parsed = validateStudentContacts(guardianName, guardianPhone, phone)) {
+        is ContactValidation.Rejected -> return FieldError(parsed.code)
+        is ContactValidation.Accepted -> parsed.contacts
+    }
     val photo = when (val parsed = parsePhoto(photoUri)) {
         is PhotoValue -> parsed.uri
         is FieldError -> return parsed
@@ -207,9 +207,9 @@ private fun studentFields(
     return StudentFields(
         name = normalizedName,
         studentCode = code,
-        guardianName = guardian,
-        guardianPhone = (guardianPhoneParsed as PhoneParse.Value).national.orEmpty(),
-        phone = (studentPhone as PhoneParse.Value).national,
+        guardianName = contacts.guardianName,
+        guardianPhone = contacts.guardianPhone,
+        phone = contacts.studentPhone,
         photoUri = photo,
         notes = (parsedNotes as OptionalText.Value).text,
     )

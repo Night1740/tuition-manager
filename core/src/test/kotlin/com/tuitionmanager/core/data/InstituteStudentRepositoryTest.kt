@@ -58,7 +58,7 @@ class InstituteStudentRepositoryTest : RoomFixture() {
         val institute = createInstitute()
         val kept = createStudent(institute.id, name = "Kept", code = "K1")
         val archived = createStudent(institute.id, name = "Gone", code = "G1")
-        students.archive(archived.id).success()
+        students.archive(archived.id, LocalDate.of(2026, 9, 15)).success()
         assertEquals(listOf(kept.id), students.observeActive(institute.id).awaitSuccess().map { it.id })
         assertEquals(
             setOf(kept.id, archived.id),
@@ -94,7 +94,25 @@ class InstituteStudentRepositoryTest : RoomFixture() {
         assertEquals(DataResult.Failure(DataError.Invalid(InvalidCode.BlankName)), result)
         val phone = students.create(newStudent(institute.id, guardianPhone = "123"))
         assertEquals(DataResult.Failure(DataError.Invalid(InvalidCode.InvalidPhone)), phone)
+        val noContact = students.create(newStudent(institute.id, guardianPhone = null, phone = " "))
+        assertEquals(DataResult.Failure(DataError.Invalid(InvalidCode.MissingContactPhone)), noContact)
         assertTrue(students.observe(institute.id, includeArchived = true).awaitSuccess().isEmpty())
+    }
+
+    @Test
+    fun studentCanBeStoredWithOnlyTheirOwnPhone() = runBlocking {
+        val institute = createInstitute()
+        val created = students.create(
+            newStudent(
+                institute.id,
+                guardianName = "  ",
+                guardianPhone = null,
+                phone = "+91 98765 43210",
+            ),
+        ).success()
+        assertNull(created.guardianName)
+        assertNull(created.guardianPhone)
+        assertEquals("9876543210", created.phone)
     }
 
     @Test
@@ -119,14 +137,16 @@ class InstituteStudentRepositoryTest : RoomFixture() {
         instituteId: String,
         name: String = "Ravi Kumar",
         code: String = "A-01",
-        guardianPhone: String = "9876543210",
+        guardianName: String? = "Guardian",
+        guardianPhone: String? = "9876543210",
+        phone: String? = null,
     ) = NewStudent(
         instituteId = instituteId,
         name = name,
         studentCode = code,
-        guardianName = "Guardian",
+        guardianName = guardianName,
         guardianPhone = guardianPhone,
-        phone = null,
+        phone = phone,
         photoUri = null,
         admissionDate = LocalDate.of(2026, 4, 1),
         notes = null,

@@ -20,9 +20,9 @@ data class InstituteEntity(
 )
 
 /**
- * Guardian name and phone live on the student. v1 records one primary contact per student,
- * which is what the teacher types on the student form. A separate guardian table can be
- * extracted later if a student needs more than one contact.
+ * Guardian name and phone live on the student and are optional. Adult students often have
+ * no guardian. Validation still requires a guardian phone or a student phone.
+ * A separate guardian table can be extracted later if a student needs more than one contact.
  */
 @Entity(
     tableName = "students",
@@ -44,8 +44,8 @@ data class StudentEntity(
     @ColumnInfo(name = "institute_id") val instituteId: String,
     @ColumnInfo(name = "name") val name: String,
     @ColumnInfo(name = "student_code", collate = ColumnInfo.NOCASE) val studentCode: String,
-    @ColumnInfo(name = "guardian_name") val guardianName: String,
-    @ColumnInfo(name = "guardian_phone") val guardianPhone: String,
+    @ColumnInfo(name = "guardian_name") val guardianName: String?,
+    @ColumnInfo(name = "guardian_phone") val guardianPhone: String?,
     @ColumnInfo(name = "phone") val phone: String?,
     @ColumnInfo(name = "photo_uri") val photoUri: String?,
     @ColumnInfo(name = "admission_date") val admissionDate: LocalDate,

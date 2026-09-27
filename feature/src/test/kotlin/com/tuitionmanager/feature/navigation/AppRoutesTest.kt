@@ -8,7 +8,8 @@ import org.junit.Test
 class AppRoutesTest {
     @Test
     fun routesRoundTripAndPlannedSetStaysExplicit() {
-        roundTrip(FoundationRoute)
+        roundTrip(OnboardingRoute)
+        roundTrip(DashboardRoute)
         roundTrip(StudentsRoute)
         roundTrip(BatchesRoute)
         roundTrip(AttendanceRoute)

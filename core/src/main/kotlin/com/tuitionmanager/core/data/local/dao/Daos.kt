@@ -47,18 +47,18 @@ abstract class InstituteDao {
 }
 
 @Dao
-interface StudentDao {
+abstract class StudentDao {
     @Query(
         "SELECT * FROM students WHERE institute_id = :instituteId " +
             "ORDER BY name COLLATE NOCASE, student_code COLLATE NOCASE",
     )
-    fun observeAll(instituteId: String): Flow<List<StudentEntity>>
+    abstract fun observeAll(instituteId: String): Flow<List<StudentEntity>>
 
     @Query(
         "SELECT * FROM students WHERE institute_id = :instituteId AND archived_at IS NULL " +
             "ORDER BY name COLLATE NOCASE, student_code COLLATE NOCASE",
     )
-    fun observeActive(instituteId: String): Flow<List<StudentEntity>>
+    abstract fun observeActive(instituteId: String): Flow<List<StudentEntity>>
 
     @Query(
         "SELECT * FROM students WHERE institute_id = :instituteId AND archived_at IS NULL " +
@@ -66,30 +66,54 @@ interface StudentDao {
             "OR student_code COLLATE NOCASE LIKE :pattern ESCAPE '\\') " +
             "ORDER BY name COLLATE NOCASE, student_code COLLATE NOCASE",
     )
-    fun observeActiveMatching(instituteId: String, pattern: String): Flow<List<StudentEntity>>
+    abstract fun observeActiveMatching(instituteId: String, pattern: String): Flow<List<StudentEntity>>
 
     @Query(
         "SELECT COUNT(*) FROM students WHERE institute_id = :instituteId AND archived_at IS NULL",
     )
-    suspend fun countActive(instituteId: String): Int
+    abstract suspend fun countActive(instituteId: String): Int
 
     @Query("SELECT * FROM students WHERE id = :id")
-    suspend fun getById(id: String): StudentEntity?
+    abstract suspend fun getById(id: String): StudentEntity?
 
     @Query("SELECT * FROM students WHERE id IN (:ids)")
-    suspend fun getByIds(ids: List<String>): List<StudentEntity>
+    abstract suspend fun getByIds(ids: List<String>): List<StudentEntity>
 
     @Insert
-    suspend fun insert(entity: StudentEntity)
+    abstract suspend fun insert(entity: StudentEntity)
 
     @Update
-    suspend fun update(entity: StudentEntity)
+    abstract suspend fun update(entity: StudentEntity)
 
     @Query(
         "UPDATE students SET archived_at = :archivedAt, updated_at = :updatedAt " +
             "WHERE id = :id AND archived_at IS NULL",
     )
-    suspend fun archive(id: String, archivedAt: Instant, updatedAt: Instant): Int
+    abstract suspend fun archive(id: String, archivedAt: Instant, updatedAt: Instant): Int
+
+    @Query(
+        "UPDATE student_batch SET ended_on = :endedOn, active_slot = NULL " +
+            "WHERE student_id = :studentId AND ended_on IS NULL",
+    )
+    abstract suspend fun endOpenAssignments(studentId: String, endedOn: LocalDate): Int
+
+    /**
+     * Archives the student and closes open assignments together.
+     * A student who is already archived is left unchanged, including their assignment history.
+     */
+    @Transaction
+    open suspend fun archiveAndCloseAssignments(
+        id: String,
+        archivedAt: Instant,
+        updatedAt: Instant,
+        endedOn: LocalDate,
+    ): Int {
+        val updated = archive(id, archivedAt, updatedAt)
+        if (updated == 1) {
+            endOpenAssignments(id, endedOn)
+        }
+        return updated
+    }
 }
 
 @Dao

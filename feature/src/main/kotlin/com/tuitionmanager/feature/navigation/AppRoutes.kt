@@ -3,12 +3,16 @@ package com.tuitionmanager.feature.navigation
 import kotlinx.serialization.Serializable
 
 /**
- * Type-safe destinations. [TuitionNavHost] registers only what exists today.
- * Later phases add a `composable<Route>` block for each planned route. Argument routes
- * (a student id, a batch id) should be added here as `@Serializable` data classes.
+ * Type-safe destinations. [TuitionNavHost] registers the screens that exist today.
+ * Later phases replace the student and batch placeholders and add a `composable` block
+ * for each remaining route. Argument routes (a student id, a batch id) should be added
+ * here as `@Serializable` data classes.
  */
 @Serializable
-data object FoundationRoute
+data object OnboardingRoute
+
+@Serializable
+data object DashboardRoute
 
 @Serializable
 data object StudentsRoute

@@ -8,16 +8,11 @@ import com.tuitionmanager.core.domain.error.ConflictCode
 import com.tuitionmanager.core.domain.error.DataError
 import com.tuitionmanager.core.domain.error.DataResult
 import com.tuitionmanager.core.domain.error.EntityKind
-import com.tuitionmanager.core.domain.error.InvalidCode
 import com.tuitionmanager.core.domain.model.Institute
 import com.tuitionmanager.core.domain.model.NewInstitute
 import com.tuitionmanager.core.domain.repository.InstituteRepository
-import com.tuitionmanager.core.domain.validation.MAX_ADDRESS_LENGTH
-import com.tuitionmanager.core.domain.validation.OptionalText
-import com.tuitionmanager.core.domain.validation.PhoneParse
-import com.tuitionmanager.core.domain.validation.normalizeRequiredName
-import com.tuitionmanager.core.domain.validation.parseOptionalText
-import com.tuitionmanager.core.domain.validation.parsePhone
+import com.tuitionmanager.core.domain.validation.InstituteValidation
+import com.tuitionmanager.core.domain.validation.validateInstituteInput
 import com.tuitionmanager.core.id.IdGenerator
 import java.time.Clock
 import javax.inject.Inject
@@ -49,8 +44,11 @@ class RoomInstituteRepository @Inject constructor(
     }
 
     override suspend fun create(draft: NewInstitute): DataResult<Institute> = runData("create_institute") {
-        val fields = validate(draft.name, draft.ownerName, draft.phone, draft.address)
-            ?: return@runData invalidFields(draft.name, draft.ownerName, draft.phone, draft.address)
+        val fields = when (val validated = validateInstituteInput(draft.name, draft.ownerName, draft.phone, draft.address)) {
+            is InstituteValidation.Rejected ->
+                return@runData DataResult.Failure(DataError.Invalid(validated.code))
+            is InstituteValidation.Accepted -> validated.draft
+        }
         withContext(dispatchers.io) {
             val now = clock.instant()
             val entity = InstituteEntity(
@@ -71,13 +69,18 @@ class RoomInstituteRepository @Inject constructor(
     }
 
     override suspend fun update(institute: Institute): DataResult<Institute> = runData("update_institute") {
-        val fields = validate(institute.name, institute.ownerName, institute.phone, institute.address)
-            ?: return@runData invalidFields(
+        val fields = when (
+            val validated = validateInstituteInput(
                 institute.name,
                 institute.ownerName,
                 institute.phone,
                 institute.address,
             )
+        ) {
+            is InstituteValidation.Rejected ->
+                return@runData DataResult.Failure(DataError.Invalid(validated.code))
+            is InstituteValidation.Accepted -> validated.draft
+        }
         withContext(dispatchers.io) {
             val existing = dao.getById(institute.id)
                 ?: return@withContext DataResult.Failure(DataError.NotFound(EntityKind.Institute))
@@ -92,42 +95,4 @@ class RoomInstituteRepository @Inject constructor(
             DataResult.Success(updated.toDomain())
         }
     }
-
-    private fun invalidFields(
-        name: String,
-        ownerName: String,
-        phone: String?,
-        address: String?,
-    ): DataResult<Institute> {
-        val code = when {
-            normalizeRequiredName(name) == null -> InvalidCode.BlankName
-            normalizeRequiredName(ownerName) == null -> InvalidCode.BlankOwnerName
-            parsePhone(phone, required = false) is PhoneParse.Invalid -> InvalidCode.InvalidPhone
-            parseOptionalText(address, MAX_ADDRESS_LENGTH) is OptionalText.TooLong -> InvalidCode.AddressTooLong
-            else -> InvalidCode.BlankName
-        }
-        return DataResult.Failure(DataError.Invalid(code))
-    }
-}
-
-private data class InstituteFields(
-    val name: String,
-    val ownerName: String,
-    val phone: String?,
-    val address: String?,
-)
-
-private fun validate(name: String, ownerName: String, phone: String?, address: String?): InstituteFields? {
-    val normalizedName = normalizeRequiredName(name) ?: return null
-    val normalizedOwner = normalizeRequiredName(ownerName) ?: return null
-    val parsedPhone = parsePhone(phone, required = false)
-    if (parsedPhone is PhoneParse.Invalid) return null
-    val parsedAddress = parseOptionalText(address, MAX_ADDRESS_LENGTH)
-    if (parsedAddress is OptionalText.TooLong) return null
-    return InstituteFields(
-        name = normalizedName,
-        ownerName = normalizedOwner,
-        phone = (parsedPhone as PhoneParse.Value).national,
-        address = (parsedAddress as OptionalText.Value).text,
-    )
 }

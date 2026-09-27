@@ -2,13 +2,13 @@
 
 Local-first Android app for a small tuition or coaching class. Room on the phone is the only source of truth. There is no cloud sync in this version.
 
-Phase 1A is the project skeleton: Gradle modules, Hilt, Compose, Navigation, and the Room schema. Onboarding, the dashboard, and student or batch screens are later phases.
+Phase 1B adds onboarding and the dashboard shell. Student and batch screens are still placeholders.
 
 ## Modules
 
 - `:app` — application, single activity, Material 3 theme
 - `:core` — ids, money, Room, repositories
-- `:feature` — navigation host and the foundation screen
+- `:feature` — navigation, onboarding, dashboard
 
 Package name: `com.tuitionmanager`.
 
@@ -17,6 +17,8 @@ Package name: `com.tuitionmanager`.
 ```bash
 ./gradlew assembleDebug
 ./gradlew test
+./gradlew lint
+./gradlew assembleRelease
 ```
 
 The Android SDK is read from `local.properties` (`sdk.dir`) or `ANDROID_HOME`.

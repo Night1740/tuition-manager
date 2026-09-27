@@ -9,6 +9,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -105,11 +106,34 @@ class BatchAssignmentRepositoryTest : RoomFixture() {
     }
 
     @Test
+    fun archivingEndsOpenAssignmentsAndRestoreLeavesThemClosed() = runBlocking {
+        val institute = createInstitute()
+        val student = createStudent(institute.id)
+        val algebra = createBatch(institute.id, name = "Algebra")
+        val science = createBatch(institute.id, name = "Science")
+        assignments.assign(student.id, algebra.id, monday).success()
+        assignments.assign(student.id, science.id, monday).success()
+        val archiveDay = LocalDate.of(2026, 9, 20)
+        students.archive(student.id, archiveDay).success()
+        val closed = assignments.observeHistory(student.id).awaitSuccess()
+        assertEquals(2, closed.size)
+        assertTrue(closed.all { it.endedOn == archiveDay && !it.isActive })
+        assertTrue(assignments.observeActiveForBatch(algebra.id).awaitSuccess().isEmpty())
+        assertTrue(assignments.observeActiveEnrollments(science.id).awaitSuccess().isEmpty())
+        students.restore(student.id).success()
+        assertFalse(students.get(student.id).success().isArchived)
+        val afterRestore = assignments.observeHistory(student.id).awaitSuccess()
+        assertTrue(afterRestore.all { it.endedOn == archiveDay })
+        assertEquals(0, assignments.observeActiveEnrollments(algebra.id).awaitSuccess().size)
+        assertEquals(0, assignments.observeActiveEnrollments(science.id).awaitSuccess().size)
+    }
+
+    @Test
     fun archivedStudentCannotBeAssigned() = runBlocking {
         val institute = createInstitute()
         val student = createStudent(institute.id)
         val batch = createBatch(institute.id)
-        students.archive(student.id).success()
+        students.archive(student.id, monday).success()
         val result = assignments.assign(student.id, batch.id, monday)
         assertEquals(DataResult.Failure(DataError.Invalid(InvalidCode.StudentArchived)), result)
     }
