@@ -1,0 +1,896 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "73a43e8b4ed3e9e64b7bffbd55166948",
+    "entities": [
+      {
+        "tableName": "institutes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `owner_name` TEXT NOT NULL, `phone` TEXT, `address` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ownerName",
+            "columnName": "owner_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phone",
+            "columnName": "phone",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "students",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `institute_id` TEXT NOT NULL, `name` TEXT NOT NULL, `student_code` TEXT NOT NULL COLLATE NOCASE, `guardian_name` TEXT, `guardian_phone` TEXT, `phone` TEXT, `photo_uri` TEXT, `admission_date` INTEGER NOT NULL, `notes` TEXT, `archived_at` INTEGER, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`institute_id`) REFERENCES `institutes`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "instituteId",
+            "columnName": "institute_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "studentCode",
+            "columnName": "student_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "guardianName",
+            "columnName": "guardian_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "guardianPhone",
+            "columnName": "guardian_phone",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "phone",
+            "columnName": "phone",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "photoUri",
+            "columnName": "photo_uri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "admissionDate",
+            "columnName": "admission_date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "archivedAt",
+            "columnName": "archived_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_students_institute_id_student_code",
+            "unique": true,
+            "columnNames": [
+              "institute_id",
+              "student_code"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_students_institute_id_student_code` ON `${TABLE_NAME}` (`institute_id`, `student_code`)"
+          },
+          {
+            "name": "index_students_institute_id_archived_at",
+            "unique": false,
+            "columnNames": [
+              "institute_id",
+              "archived_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_students_institute_id_archived_at` ON `${TABLE_NAME}` (`institute_id`, `archived_at`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "institutes",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "institute_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "batches",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `institute_id` TEXT NOT NULL, `name` TEXT NOT NULL, `subject` TEXT NOT NULL, `days_of_week` TEXT NOT NULL, `start_minute` INTEGER NOT NULL, `end_minute` INTEGER NOT NULL, `room` TEXT, `capacity` INTEGER NOT NULL, `archived_at` INTEGER, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`institute_id`) REFERENCES `institutes`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "instituteId",
+            "columnName": "institute_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subject",
+            "columnName": "subject",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "daysOfWeek",
+            "columnName": "days_of_week",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startMinute",
+            "columnName": "start_minute",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endMinute",
+            "columnName": "end_minute",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "room",
+            "columnName": "room",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "capacity",
+            "columnName": "capacity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archivedAt",
+            "columnName": "archived_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_batches_institute_id_archived_at",
+            "unique": false,
+            "columnNames": [
+              "institute_id",
+              "archived_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_batches_institute_id_archived_at` ON `${TABLE_NAME}` (`institute_id`, `archived_at`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "institutes",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "institute_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "student_batch",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `student_id` TEXT NOT NULL, `batch_id` TEXT NOT NULL, `started_on` INTEGER NOT NULL, `ended_on` INTEGER, `active_slot` TEXT, `created_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`student_id`) REFERENCES `students`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`batch_id`) REFERENCES `batches`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "studentId",
+            "columnName": "student_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchId",
+            "columnName": "batch_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedOn",
+            "columnName": "started_on",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endedOn",
+            "columnName": "ended_on",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "activeSlot",
+            "columnName": "active_slot",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_student_batch_active_slot",
+            "unique": true,
+            "columnNames": [
+              "active_slot"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_student_batch_active_slot` ON `${TABLE_NAME}` (`active_slot`)"
+          },
+          {
+            "name": "index_student_batch_student_id_ended_on",
+            "unique": false,
+            "columnNames": [
+              "student_id",
+              "ended_on"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_student_batch_student_id_ended_on` ON `${TABLE_NAME}` (`student_id`, `ended_on`)"
+          },
+          {
+            "name": "index_student_batch_batch_id_ended_on",
+            "unique": false,
+            "columnNames": [
+              "batch_id",
+              "ended_on"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_student_batch_batch_id_ended_on` ON `${TABLE_NAME}` (`batch_id`, `ended_on`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "students",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "student_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "batches",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "batch_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "attendance",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `student_id` TEXT NOT NULL, `batch_id` TEXT NOT NULL, `session_date` INTEGER NOT NULL, `status` TEXT NOT NULL, `marked_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`student_id`) REFERENCES `students`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`batch_id`) REFERENCES `batches`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "studentId",
+            "columnName": "student_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchId",
+            "columnName": "batch_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionDate",
+            "columnName": "session_date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "markedAt",
+            "columnName": "marked_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_attendance_student_id_batch_id_session_date",
+            "unique": true,
+            "columnNames": [
+              "student_id",
+              "batch_id",
+              "session_date"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_attendance_student_id_batch_id_session_date` ON `${TABLE_NAME}` (`student_id`, `batch_id`, `session_date`)"
+          },
+          {
+            "name": "index_attendance_batch_id",
+            "unique": false,
+            "columnNames": [
+              "batch_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_attendance_batch_id` ON `${TABLE_NAME}` (`batch_id`)"
+          },
+          {
+            "name": "index_attendance_session_date",
+            "unique": false,
+            "columnNames": [
+              "session_date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_attendance_session_date` ON `${TABLE_NAME}` (`session_date`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "students",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "student_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "batches",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "batch_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "fee_plans",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `institute_id` TEXT NOT NULL, `batch_id` TEXT, `name` TEXT NOT NULL, `amount_paise` INTEGER NOT NULL, `cadence` TEXT NOT NULL, `archived_at` INTEGER, `created_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`institute_id`) REFERENCES `institutes`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`batch_id`) REFERENCES `batches`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "instituteId",
+            "columnName": "institute_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchId",
+            "columnName": "batch_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amountPaise",
+            "columnName": "amount_paise",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cadence",
+            "columnName": "cadence",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archivedAt",
+            "columnName": "archived_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_fee_plans_institute_id",
+            "unique": false,
+            "columnNames": [
+              "institute_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_fee_plans_institute_id` ON `${TABLE_NAME}` (`institute_id`)"
+          },
+          {
+            "name": "index_fee_plans_batch_id",
+            "unique": false,
+            "columnNames": [
+              "batch_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_fee_plans_batch_id` ON `${TABLE_NAME}` (`batch_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "institutes",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "institute_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "batches",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "batch_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "fee_obligations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `student_id` TEXT NOT NULL, `fee_plan_id` TEXT NOT NULL, `period_key` TEXT NOT NULL, `amount_paise` INTEGER NOT NULL, `due_date` INTEGER, `created_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`student_id`) REFERENCES `students`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`fee_plan_id`) REFERENCES `fee_plans`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "studentId",
+            "columnName": "student_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "feePlanId",
+            "columnName": "fee_plan_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "periodKey",
+            "columnName": "period_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amountPaise",
+            "columnName": "amount_paise",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dueDate",
+            "columnName": "due_date",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_fee_obligations_student_id_fee_plan_id_period_key",
+            "unique": true,
+            "columnNames": [
+              "student_id",
+              "fee_plan_id",
+              "period_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_fee_obligations_student_id_fee_plan_id_period_key` ON `${TABLE_NAME}` (`student_id`, `fee_plan_id`, `period_key`)"
+          },
+          {
+            "name": "index_fee_obligations_fee_plan_id",
+            "unique": false,
+            "columnNames": [
+              "fee_plan_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_fee_obligations_fee_plan_id` ON `${TABLE_NAME}` (`fee_plan_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "students",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "student_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "fee_plans",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "fee_plan_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "payments",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `student_id` TEXT NOT NULL, `obligation_id` TEXT, `amount_paise` INTEGER NOT NULL, `kind` TEXT NOT NULL, `reverses_payment_id` TEXT, `note` TEXT, `recorded_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`student_id`) REFERENCES `students`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`obligation_id`) REFERENCES `fee_obligations`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`reverses_payment_id`) REFERENCES `payments`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "studentId",
+            "columnName": "student_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "obligationId",
+            "columnName": "obligation_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "amountPaise",
+            "columnName": "amount_paise",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reversesPaymentId",
+            "columnName": "reverses_payment_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "recordedAt",
+            "columnName": "recorded_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_payments_student_id_recorded_at",
+            "unique": false,
+            "columnNames": [
+              "student_id",
+              "recorded_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_payments_student_id_recorded_at` ON `${TABLE_NAME}` (`student_id`, `recorded_at`)"
+          },
+          {
+            "name": "index_payments_obligation_id",
+            "unique": false,
+            "columnNames": [
+              "obligation_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_payments_obligation_id` ON `${TABLE_NAME}` (`obligation_id`)"
+          },
+          {
+            "name": "index_payments_reverses_payment_id",
+            "unique": false,
+            "columnNames": [
+              "reverses_payment_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_payments_reverses_payment_id` ON `${TABLE_NAME}` (`reverses_payment_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "students",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "student_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "fee_obligations",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "obligation_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "payments",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "reverses_payment_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "notices",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `institute_id` TEXT NOT NULL, `title` TEXT NOT NULL, `body` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `archived_at` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`institute_id`) REFERENCES `institutes`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "instituteId",
+            "columnName": "institute_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "body",
+            "columnName": "body",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archivedAt",
+            "columnName": "archived_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_notices_institute_id_created_at",
+            "unique": false,
+            "columnNames": [
+              "institute_id",
+              "created_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_notices_institute_id_created_at` ON `${TABLE_NAME}` (`institute_id`, `created_at`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "institutes",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "institute_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '73a43e8b4ed3e9e64b7bffbd55166948')"
+    ]
+  }
+}
